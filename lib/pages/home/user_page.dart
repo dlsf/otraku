@@ -116,7 +116,7 @@ class UserTab extends StatelessWidget {
                 ],
               ),
             ),
-          if (user.model?.description != null)
+          if (user.model?.about != null)
             SliverToBoxAdapter(
               child: Container(
                 margin: padding,
@@ -125,7 +125,7 @@ class UserTab extends StatelessWidget {
                   color: Theme.of(context).primaryColor,
                   borderRadius: Config.BORDER_RADIUS,
                 ),
-                child: HtmlContent(user.model!.description!),
+                child: MarkdownContent(user.model!.about!),
               ),
             ),
           SliverToBoxAdapter(child: SizedBox(height: NavBar.offset(context))),

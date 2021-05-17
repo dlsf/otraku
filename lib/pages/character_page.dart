@@ -210,7 +210,7 @@ class _Details extends StatelessWidget {
                     ),
                     onTap: () => showPopUp(
                       context,
-                      HtmlDialog(title: 'Description', text: model.description),
+                      HtmlDialog(title: 'Description', html: model.description),
                     ),
                   ),
                 ),

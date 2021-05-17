@@ -78,12 +78,12 @@ class TextDialog extends StatelessWidget {
 
 class HtmlDialog extends StatelessWidget {
   final String title;
-  final String text;
-  const HtmlDialog({required this.title, required this.text});
+  final String html;
+  const HtmlDialog({required this.title, required this.html});
 
   @override
   Widget build(BuildContext context) =>
-      _Dialog(title: title, expand: true, child: HtmlContent(text));
+      _Dialog(title: title, expand: true, child: HtmlContent(html));
 }
 
 class _Dialog extends StatelessWidget {

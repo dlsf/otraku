@@ -2,6 +2,7 @@ import 'package:otraku/models/activity_model.dart';
 import 'package:otraku/models/helper_models/browse_result_model.dart';
 import 'package:otraku/models/page_model.dart';
 import 'package:otraku/models/statistics_model.dart';
+import 'package:otraku/utils/markdown.dart';
 
 class UserModel {
   static const ANIME_FAV = 0;
@@ -12,7 +13,7 @@ class UserModel {
 
   final int? id;
   final String? name;
-  final String? description;
+  final Markdown? about;
   final String? avatar;
   final String? banner;
   bool isFollowing;
@@ -39,7 +40,7 @@ class UserModel {
   UserModel._({
     required this.id,
     required this.name,
-    required this.description,
+    required this.about,
     required this.avatar,
     required this.banner,
     required this.donatorTier,
@@ -56,7 +57,7 @@ class UserModel {
   factory UserModel(final Map<String, dynamic> map, bool me) => UserModel._(
         id: map['id'],
         name: map['name'],
-        description: map['about'],
+        about: map['about'] != null ? Markdown(map['about']) : null,
         avatar: map['avatar']['large'],
         banner: map['bannerImage'],
         isFollowing: map['isFollowing'] ?? false,

@@ -20,7 +20,7 @@ class User extends GetxController {
       fragment main on User {
         id
         name
-        about(asHtml: true)
+        about
         avatar {large}
         bannerImage
         isFollowing
