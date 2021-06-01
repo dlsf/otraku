@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:otraku/models/character_model.dart';
 import 'package:otraku/utils/client.dart';
-import 'package:otraku/enums/browsable.dart';
+import 'package:otraku/enums/explorable.dart';
 import 'package:otraku/utils/convert.dart';
 import 'package:otraku/enums/media_sort.dart';
 import 'package:otraku/models/page_model.dart';
-import 'package:otraku/models/helper_models/connection.dart';
+import 'package:otraku/models/connection_model.dart';
 import 'package:otraku/utils/scroll_x_controller.dart';
 
 class Character extends ScrollxController {
@@ -63,8 +63,8 @@ class Character extends ScrollxController {
   Character(this.id);
 
   CharacterModel? _model;
-  final _anime = PageModel<Connection>().obs;
-  final _manga = PageModel<Connection>().obs;
+  final _anime = PageModel<ConnectionModel>().obs;
+  final _manga = PageModel<ConnectionModel>().obs;
   final _onAnime = true.obs;
   final _staffLanguage = 'Japanese'.obs;
   final _availableLanguages = <String>[];
@@ -72,9 +72,9 @@ class Character extends ScrollxController {
 
   CharacterModel? get model => _model;
 
-  PageModel<Connection> get anime => _anime();
+  PageModel<ConnectionModel> get anime => _anime();
 
-  PageModel<Connection> get manga => _manga();
+  PageModel<ConnectionModel> get manga => _manga();
 
   @override
   bool get hasNextPage =>
@@ -181,29 +181,29 @@ class Character extends ScrollxController {
       _anime().clear();
     }
 
-    final connections = <Connection>[];
+    final connections = <ConnectionModel>[];
     for (final connection in data['anime']['edges']) {
-      final voiceActors = <Connection>[];
+      final voiceActors = <ConnectionModel>[];
 
       for (final va in connection['voiceActors']) {
         final language = Convert.clarifyEnum(va['language']);
         if (!_availableLanguages.contains(language))
           _availableLanguages.add(language!);
 
-        voiceActors.add(Connection(
+        voiceActors.add(ConnectionModel(
           id: va['id'],
           title: va['name']['full'],
           imageUrl: va['image']['large'],
-          browsable: Browsable.staff,
+          browsable: Explorable.staff,
           text2: language,
         ));
       }
 
-      connections.add(Connection(
+      connections.add(ConnectionModel(
         id: connection['node']['id'],
         title: connection['node']['title']['userPreferred'],
         imageUrl: connection['node']['coverImage']['large'],
-        browsable: Browsable.anime,
+        browsable: Explorable.anime,
         text2: Convert.clarifyEnum(connection['characterRole']),
         others: voiceActors,
       ));
@@ -220,13 +220,13 @@ class Character extends ScrollxController {
   void _initManga(Map<String, dynamic> data, bool clear) {
     if (clear) _manga().clear();
 
-    final connections = <Connection>[];
+    final connections = <ConnectionModel>[];
     for (final connection in data['manga']['edges'])
-      connections.add(Connection(
+      connections.add(ConnectionModel(
         id: connection['node']['id'],
         title: connection['node']['title']['userPreferred'],
         imageUrl: connection['node']['coverImage']['large'],
-        browsable: Browsable.manga,
+        browsable: Explorable.manga,
         text2: Convert.clarifyEnum(connection['characterRole']),
       ));
 

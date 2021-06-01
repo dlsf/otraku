@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:otraku/enums/browsable.dart';
+import 'package:otraku/enums/explorable.dart';
 import 'package:otraku/enums/media_sort.dart';
 import 'package:otraku/models/page_model.dart';
 import 'package:otraku/models/tag_model.dart';
 import 'package:otraku/utils/filterable.dart';
-import 'package:otraku/models/helper_models/browse_result_model.dart';
+import 'package:otraku/models/explorable_model.dart';
 import 'package:otraku/utils/client.dart';
 import 'package:otraku/utils/scroll_x_controller.dart';
 
@@ -98,8 +98,8 @@ class Explorer extends ScrollxController implements Filterable {
   // ***************************************************************************
 
   final _isLoading = true.obs;
-  final _results = PageModel<BrowseResultModel>().obs;
-  final _type = Browsable.anime.obs;
+  final _results = PageModel<ExplorableModel>().obs;
+  final _type = Explorable.anime.obs;
   final _search = ''.obs;
   final _genres = <String>[];
   final _tags = <String, List<TagModel>>{};
@@ -120,11 +120,11 @@ class Explorer extends ScrollxController implements Filterable {
 
   bool get isLoading => _isLoading();
 
-  Browsable get type => _type();
+  Explorable get type => _type();
 
   String get search => _search();
 
-  List<BrowseResultModel> get results => _results().items;
+  List<ExplorableModel> get results => _results().items;
 
   List<String> get genres => [..._genres];
 
@@ -134,11 +134,11 @@ class Explorer extends ScrollxController implements Filterable {
   // FUNCTIONS CONTROLLING QUERY VARIABLES
   // ***************************************************************************
 
-  set type(Browsable value) {
+  set type(Explorable value) {
     _type.value = value;
 
-    if (value == Browsable.anime) _filters[Filterable.TYPE] = 'ANIME';
-    if (value == Browsable.manga) _filters[Filterable.TYPE] = 'MANGA';
+    if (value == Explorable.anime) _filters[Filterable.TYPE] = 'ANIME';
+    if (value == Explorable.manga) _filters[Filterable.TYPE] = 'MANGA';
 
     _filters.remove(Filterable.FORMAT_IN);
     fetch();
@@ -208,23 +208,23 @@ class Explorer extends ScrollxController implements Filterable {
 
     String query;
     switch (_type.value) {
-      case Browsable.anime:
-      case Browsable.manga:
+      case Explorable.anime:
+      case Explorable.manga:
         query = _mediaQuery;
         break;
-      case Browsable.character:
+      case Explorable.character:
         query = _charactersQuery;
         break;
-      case Browsable.staff:
+      case Explorable.staff:
         query = _staffQuery;
         break;
-      case Browsable.studio:
+      case Explorable.studio:
         query = _studiosQuery;
         break;
-      case Browsable.user:
+      case Explorable.user:
         query = _usersQuery;
         break;
-      case Browsable.review:
+      case Explorable.review:
         query = _reviewsQuery;
         break;
     }
@@ -240,33 +240,33 @@ class Explorer extends ScrollxController implements Filterable {
 
     data = data['Page'];
 
-    final items = <BrowseResultModel>[];
+    final items = <ExplorableModel>[];
     final List<dynamic> idNotIn = _filters[Filterable.ID_NOT_IN];
 
     if (data!['media'] != null)
       for (final m in data['media']) {
-        items.add(BrowseResultModel.media(m));
+        items.add(ExplorableModel.media(m));
         idNotIn.add(m['id']);
       }
     else if (data['characters'] != null)
       for (final c in data['characters']) {
-        items.add(BrowseResultModel.character(c));
+        items.add(ExplorableModel.character(c));
         idNotIn.add(c['id']);
       }
     else if (data['staff'] != null)
       for (final s in data['staff']) {
-        items.add(BrowseResultModel.staff(s));
+        items.add(ExplorableModel.staff(s));
         idNotIn.add(s['id']);
       }
     else if (data['studios'] != null)
       for (final s in data['studios']) {
-        items.add(BrowseResultModel.studio(s));
+        items.add(ExplorableModel.studio(s));
         idNotIn.add(s['id']);
       }
     else if (data['users'] != null)
-      for (final u in data['users']) items.add(BrowseResultModel.user(u));
+      for (final u in data['users']) items.add(ExplorableModel.user(u));
     else if (data['reviews'] != null)
-      for (final r in data['reviews']) items.add(BrowseResultModel.review(r));
+      for (final r in data['reviews']) items.add(ExplorableModel.review(r));
 
     if (clean)
       _results.update((r) {
@@ -322,11 +322,11 @@ class Explorer extends ScrollxController implements Filterable {
         _tags[category]!.add(TagModel(t));
     }
 
-    final items = <BrowseResultModel>[];
+    final items = <ExplorableModel>[];
     final List<dynamic> idNotIn = _filters[Filterable.ID_NOT_IN];
 
     for (final a in data['Page']['media']) {
-      items.add(BrowseResultModel.anime(a));
+      items.add(ExplorableModel.anime(a));
       idNotIn.add(a['id']);
     }
 

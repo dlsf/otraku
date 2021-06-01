@@ -6,7 +6,6 @@ import 'package:otraku/controllers/entry.dart';
 import 'package:otraku/controllers/viewer.dart';
 import 'package:otraku/enums/list_status.dart';
 import 'package:otraku/enums/score_format.dart';
-import 'package:otraku/models/entry_model.dart';
 import 'package:otraku/models/settings_model.dart';
 import 'package:otraku/utils/config.dart';
 import 'package:otraku/widgets/action_icon.dart';
@@ -15,13 +14,15 @@ import 'package:otraku/widgets/fields/date_field.dart';
 import 'package:otraku/widgets/fields/drop_down_field.dart';
 import 'package:otraku/widgets/fields/expandable_field.dart';
 import 'package:otraku/widgets/layouts/sliver_grid_delegates.dart';
+import 'package:otraku/widgets/loaders.dart/loader.dart';
 import 'package:otraku/widgets/navigation/custom_app_bar.dart';
 import 'package:otraku/widgets/fields/input_field_structure.dart';
 import 'package:otraku/widgets/fields/number_field.dart';
 import 'package:otraku/widgets/fields/score_picker.dart';
 import 'package:otraku/widgets/overlays/dialogs.dart';
+import 'package:otraku/widgets/overlays/toast.dart';
 
-class EntryPage extends StatefulWidget {
+class EntryPage extends StatelessWidget {
   static const ROUTE = '/edit';
 
   final int mediaId;
@@ -30,13 +31,11 @@ class EntryPage extends StatefulWidget {
   EntryPage(this.mediaId, this.callback);
 
   @override
-  _EntryPageState createState() => _EntryPageState();
-}
-
-// TODO: update score and so on
-class _EntryPageState extends State<EntryPage> {
-  @override
-  Widget build(BuildContext context) => GetBuilder<Entry>(builder: (entry) {
+  Widget build(BuildContext context) {
+    return GetBuilder<Entry>(
+      id: Entry.MAIN_ID,
+      tag: mediaId.toString(),
+      builder: (entry) {
         final model = entry.model;
 
         return Scaffold(
@@ -51,36 +50,19 @@ class _EntryPageState extends State<EntryPage> {
                         icon: Ionicons.trash_bin_outline,
                         onTap: () => showPopUp(
                           context,
-                          AlertDialog(
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: Config.BORDER_RADIUS,
-                            ),
-                            backgroundColor: Theme.of(context).primaryColor,
-                            title: Text('Remove entry?'),
-                            actions: [
-                              TextButton(
-                                child: Text(
-                                  'No',
-                                  style: TextStyle(
-                                    color: Theme.of(context).dividerColor,
-                                  ),
-                                ),
-                                onPressed: () => Navigator.of(context).pop(),
-                              ),
-                              TextButton(
-                                child: Text('Yes'),
-                                onPressed: () {
-                                  Get.find<Collection>(
-                                    tag: model.type == 'ANIME'
-                                        ? Collection.ANIME
-                                        : Collection.MANGA,
-                                  ).removeEntry(entry.oldModel!);
-                                  Navigator.of(context).pop();
-                                  Navigator.of(context).pop();
-                                  widget.callback?.call(null);
-                                },
-                              ),
-                            ],
+                          ConfirmationDialog(
+                            title: 'Remove entry?',
+                            mainAction: 'Yes',
+                            secondaryAction: 'No',
+                            onConfirm: () {
+                              Get.find<Collection>(
+                                tag: model.type == 'ANIME'
+                                    ? Collection.ANIME
+                                    : Collection.MANGA,
+                              ).removeEntry(entry.oldModel!);
+                              callback?.call(null);
+                              Navigator.of(context).pop();
+                            },
                           ),
                         ),
                       ),
@@ -89,41 +71,37 @@ class _EntryPageState extends State<EntryPage> {
                         tooltip: 'Save',
                         icon: Ionicons.save_outline,
                         onTap: () {
-                          if (entry.oldModel!.status == null &&
-                              entry.model!.status == ListStatus.CURRENT &&
-                              entry.model!.startedAt == null)
-                            entry.model!.startedAt = DateTime.now();
-
-                          if (entry.oldModel!.status != ListStatus.COMPLETED &&
-                              entry.model!.status == ListStatus.COMPLETED &&
-                              entry.model!.completedAt == null)
-                            entry.model!.completedAt = DateTime.now();
-
                           Get.find<Collection>(
                             tag: model.type == 'ANIME'
                                 ? Collection.ANIME
                                 : Collection.MANGA,
                           ).updateEntry(entry.oldModel!, model);
+
                           Navigator.of(context).pop();
-                          widget.callback?.call(model.status);
+                          callback?.call(model.status);
                         }),
                   ]
                 : [],
           ),
           body: model != null
-              ? _Content(model, Get.find<Viewer>().settings!)
-              : const SizedBox(),
+              ? _Content(entry, Get.find<Viewer>().settings!)
+              : const Center(child: Loader()),
         );
-      });
+      },
+    );
+  }
 }
 
 class _Content extends StatelessWidget {
-  final EntryModel model;
+  final Entry entry;
   final SettingsModel settings;
-  _Content(this.model, this.settings);
+  _Content(this.entry, this.settings);
 
   @override
   Widget build(BuildContext context) {
+    final old = entry.oldModel!;
+    final model = entry.model!;
+
     final advancedScoring = <Widget>[];
     if (settings.advancedScoringEnabled &&
         (settings.scoreFormat == ScoreFormat.POINT_100 ||
@@ -137,9 +115,26 @@ class _Content extends StatelessWidget {
         fields.add(InputFieldStructure(
           title: s.key,
           child: NumberField(
-            initialValue: s.value,
-            maxValue: 10,
-            update: (score) => model.advancedScores[s.key] = score.toDouble(),
+            value: s.value,
+            maxValue: 100,
+            update: (score) {
+              model.advancedScores[s.key] = score.toDouble();
+
+              int count = 0;
+              double avg = 0;
+              for (final v in model.advancedScores.values)
+                if (v > 0) {
+                  avg += v;
+                  count++;
+                }
+
+              if (count > 0) avg /= count;
+
+              if (model.score != avg) {
+                model.score = avg;
+                entry.update([Entry.SCORE_ID]);
+              }
+            },
           ),
         ));
 
@@ -153,32 +148,117 @@ class _Content extends StatelessWidget {
         slivers: [
           const SliverToBoxAdapter(child: SizedBox(height: 10)),
           _FieldGrid([
-            DropDownField<ListStatus>(
-              hint: 'Add',
-              title: 'Status',
-              initialValue: model.status,
-              items: Map.fromIterable(
-                ListStatus.values,
-                key: (v) => listStatusSpecification(
-                  v,
-                  model.type == 'ANIME',
+            GetBuilder<Entry>(
+              id: Entry.STATUS_ID,
+              tag: model.mediaId.toString(),
+              builder: (_) => DropDownField<ListStatus>(
+                hint: 'Add',
+                title: 'Status',
+                value: model.status,
+                items: Map.fromIterable(
+                  ListStatus.values,
+                  key: (v) => listStatusSpecification(
+                    v,
+                    model.type == 'ANIME',
+                  ),
+                  value: (v) => v,
                 ),
-                value: (v) => v,
+                onChanged: (status) {
+                  model.status = status;
+
+                  if (old.status == null &&
+                      model.status == ListStatus.CURRENT &&
+                      model.startedAt == null) {
+                    model.startedAt = DateTime.now();
+                    entry.update([Entry.START_DATE_ID]);
+                    Toast.show(context, 'Start date changed');
+                    return;
+                  }
+
+                  if (old.status != model.status &&
+                      model.status == ListStatus.COMPLETED &&
+                      model.completedAt == null) {
+                    model.completedAt = DateTime.now();
+                    entry.update([Entry.COMPLETE_DATE_ID]);
+                    String text = 'Completed date changed';
+
+                    if (model.progressMax != null &&
+                        model.progress < model.progressMax!) {
+                      model.progress = model.progressMax!;
+                      entry.update([Entry.PROGRESS_ID]);
+                      text = 'Completed date & progress changed';
+                    }
+
+                    Toast.show(context, text);
+                  }
+                },
               ),
-              onChanged: (status) => model.status = status,
             ),
             InputFieldStructure(
               title: 'Progress',
-              child: NumberField(
-                initialValue: model.progress,
-                maxValue: model.progressMax ?? 100000,
-                update: (progress) => model.progress = progress.toInt(),
+              child: GetBuilder<Entry>(
+                id: Entry.PROGRESS_ID,
+                tag: model.mediaId.toString(),
+                builder: (_) => NumberField(
+                  value: model.progress,
+                  maxValue: model.progressMax ?? 100000,
+                  update: (progress) {
+                    model.progress = progress.toInt();
+
+                    if (model.progressMax != null &&
+                        model.progress == model.progressMax &&
+                        old.progress != model.progress) {
+                      String? text;
+
+                      if (old.status == model.status &&
+                          old.status != ListStatus.COMPLETED) {
+                        model.status = ListStatus.COMPLETED;
+                        entry.update([Entry.STATUS_ID]);
+                        text = 'Status changed';
+                      }
+
+                      if (old.completedAt == model.completedAt &&
+                          old.completedAt == null) {
+                        model.completedAt = DateTime.now();
+                        entry.update([Entry.COMPLETE_DATE_ID]);
+                        text = text == null
+                            ? 'Completed date changed'
+                            : 'Status & Completed date changed';
+                      }
+
+                      if (text != null) Toast.show(context, text);
+                      return;
+                    }
+
+                    if (old.progress == 0 && old.progress != model.progress) {
+                      String? text;
+
+                      if (old.status == model.status &&
+                          (old.status == null ||
+                              old.status == ListStatus.PLANNING)) {
+                        model.status = ListStatus.CURRENT;
+                        entry.update([Entry.STATUS_ID]);
+                        text = 'Status changed';
+                      }
+
+                      if (old.startedAt == null && model.startedAt == null) {
+                        model.startedAt = DateTime.now();
+                        entry.update([Entry.START_DATE_ID]);
+                        text = text == null
+                            ? 'Start date changed'
+                            : 'Status & start date changed';
+                      }
+
+                      if (text != null) Toast.show(context, text);
+                    }
+                  },
+                ),
               ),
             ),
             InputFieldStructure(
               title: 'Repeat',
               child: NumberField(
-                initialValue: model.repeat,
+                value: model.repeat,
                 update: (repeat) => model.repeat = repeat.toInt(),
               ),
             ),
@@ -186,7 +266,7 @@ class _Content extends StatelessWidget {
               InputFieldStructure(
                 title: 'Progress Volumes',
                 child: NumberField(
-                  initialValue: model.progressVolumes,
+                  value: model.progressVolumes,
                   maxValue: model.progressVolumesMax ?? 100000,
                   update: (progressVolumes) =>
                       model.progressVolumes = progressVolumes.toInt(),
@@ -197,7 +277,11 @@ class _Content extends StatelessWidget {
           SliverToBoxAdapter(
             child: InputFieldStructure(
               title: 'Score',
-              child: ScorePicker(model),
+              child: GetBuilder<Entry>(
+                id: Entry.SCORE_ID,
+                tag: model.mediaId.toString(),
+                builder: (_) => ScorePicker(model),
+              ),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 10)),
@@ -214,18 +298,57 @@ class _Content extends StatelessWidget {
           _FieldGrid([
             InputFieldStructure(
               title: 'Start Date',
-              child: DateField(
-                date: model.startedAt,
-                onChanged: (startDate) => model.startedAt = startDate,
-                helpText: 'Start Date',
+              child: GetBuilder<Entry>(
+                id: Entry.START_DATE_ID,
+                tag: model.mediaId.toString(),
+                builder: (_) => DateField(
+                  date: model.startedAt,
+                  onChanged: (startDate) {
+                    model.startedAt = startDate;
+
+                    if (startDate == null) return;
+
+                    if (old.status == null && model.status == null) {
+                      model.status = ListStatus.CURRENT;
+                      entry.update([Entry.STATUS_ID]);
+                      Toast.show(context, 'Status changed');
+                    }
+                  },
+                  helpText: 'Start Date',
+                ),
               ),
             ),
             InputFieldStructure(
-              title: 'End Date',
-              child: DateField(
-                date: model.completedAt,
-                onChanged: (endDate) => model.completedAt = endDate,
-                helpText: 'End Date',
+              title: 'Completed Date',
+              child: GetBuilder<Entry>(
+                id: Entry.COMPLETE_DATE_ID,
+                tag: model.mediaId.toString(),
+                builder: (_) => DateField(
+                  date: model.completedAt,
+                  onChanged: (endDate) {
+                    model.completedAt = endDate;
+
+                    if (endDate == null) return;
+
+                    if (old.status != ListStatus.COMPLETED &&
+                        old.status != ListStatus.REPEATING &&
+                        old.status == model.status) {
+                      model.status = ListStatus.COMPLETED;
+                      entry.update([Entry.STATUS_ID]);
+                      String text = 'Status changed';
+
+                      if (model.progressMax != null &&
+                          model.progress < model.progressMax!) {
+                        model.progress = model.progressMax!;
+                        entry.update([Entry.PROGRESS_ID]);
+                        text = 'Status & progress changed';
+                      }
+
+                      Toast.show(context, text);
+                    }
+                  },
+                  helpText: 'Completed Date',
+                ),
               ),
             ),
           ], minWidth: 165),

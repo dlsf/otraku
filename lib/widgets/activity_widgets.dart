@@ -2,21 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 import 'package:otraku/controllers/activity.dart';
+import 'package:otraku/controllers/feed.dart';
 import 'package:otraku/utils/config.dart';
 import 'package:otraku/enums/activity_type.dart';
-import 'package:otraku/enums/browsable.dart';
+import 'package:otraku/enums/explorable.dart';
 import 'package:otraku/enums/themes.dart';
 import 'package:otraku/models/activity_model.dart';
 import 'package:otraku/pages/activity_page.dart';
-import 'package:otraku/widgets/browse_indexer.dart';
+import 'package:otraku/widgets/explore_indexer.dart';
 import 'package:otraku/widgets/fade_image.dart';
 import 'package:otraku/widgets/html_content.dart';
+import 'package:otraku/widgets/overlays/dialogs.dart';
 import 'package:otraku/widgets/triangle_clip.dart';
 
 class UserActivity extends StatelessWidget {
-  final ActivityModel activity;
+  final Feed feed;
+  final ActivityModel model;
 
-  UserActivity(this.activity);
+  UserActivity({required this.feed, required this.model});
 
   @override
   Widget build(BuildContext context) {
@@ -25,42 +28,47 @@ class UserActivity extends StatelessWidget {
       children: [
         Row(
           children: [
-            BrowseIndexer(
-              id: activity.agentId!,
-              imageUrl: activity.agentImage,
-              browsable: Browsable.user,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ClipRRect(
-                    borderRadius: Config.BORDER_RADIUS,
-                    child: FadeImage(
-                      activity.agentImage,
-                      height: 50,
-                      width: 50,
+            Flexible(
+              child: ExploreIndexer(
+                id: model.agentId!,
+                imageUrl: model.agentImage,
+                browsable: Explorable.user,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ClipRRect(
+                      borderRadius: Config.BORDER_RADIUS,
+                      child: FadeImage(model.agentImage, height: 50, width: 50),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(activity.agentName!),
-                ],
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        model.agentName!,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            if (activity.recieverId != null) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+            if (model.recieverId != null) ...[
+              if (model.isPrivate)
+                const Padding(
+                  padding: EdgeInsets.only(left: 10),
+                  child: Icon(Ionicons.eye_off_outline),
+                ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
                 child: Icon(Icons.arrow_right_alt),
               ),
-              BrowseIndexer(
-                id: activity.recieverId!,
-                imageUrl: activity.recieverImage,
-                browsable: Browsable.user,
+              ExploreIndexer(
+                id: model.recieverId!,
+                imageUrl: model.recieverImage,
+                browsable: Explorable.user,
                 child: ClipRRect(
                   borderRadius: Config.BORDER_RADIUS,
-                  child: FadeImage(
-                    activity.recieverImage,
-                    height: 50,
-                    width: 50,
-                  ),
+                  child: FadeImage(model.recieverImage, height: 50, width: 50),
                 ),
               ),
             ],
@@ -75,59 +83,48 @@ class UserActivity extends StatelessWidget {
             color: Theme.of(context).primaryColor,
           ),
         ),
-        ActivityBox(activity),
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: Config.PADDING,
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor,
+            borderRadius: Config.BORDER_RADIUS,
+          ),
+          child: Column(
+            children: [
+              if (model.type == ActivityType.ANIME_LIST ||
+                  model.type == ActivityType.MANGA_LIST)
+                MediaBox(model)
+              else
+                UnconstrainedBox(
+                  constrainedAxis: Axis.horizontal,
+                  alignment: Alignment.topLeft,
+                  child: HtmlContent(model.text),
+                ),
+              const SizedBox(height: 5),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    model.createdAt,
+                    style: Theme.of(context).textTheme.subtitle2,
+                  ),
+                  _InteractionButtons(feed, model),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 }
 
-class ActivityBox extends StatelessWidget {
-  final ActivityModel activity;
-  final bool canPushPage;
-
-  ActivityBox(this.activity, {this.canPushPage = true});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: Config.PADDING,
-      decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor,
-        borderRadius: Config.BORDER_RADIUS,
-      ),
-      child: Column(
-        children: [
-          if (activity.type == ActivityType.ANIME_LIST ||
-              activity.type == ActivityType.MANGA_LIST)
-            _MediaBox(activity)
-          else
-            UnconstrainedBox(
-              constrainedAxis: Axis.horizontal,
-              alignment: Alignment.topLeft,
-              child: HtmlContent(activity.text),
-            ),
-          const SizedBox(height: 5),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                activity.createdAt,
-                style: Theme.of(context).textTheme.subtitle2,
-              ),
-              _InteractionButtons(activity, canPushPage),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _InteractionButtons extends StatefulWidget {
-  final ActivityModel activity;
-  final bool canPushPage;
-  _InteractionButtons(this.activity, this.canPushPage);
+  final Feed feed;
+  final ActivityModel model;
+
+  _InteractionButtons(this.feed, this.model);
 
   @override
   __InteractionButtonsState createState() => __InteractionButtonsState();
@@ -138,20 +135,40 @@ class __InteractionButtonsState extends State<_InteractionButtons> {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        if (widget.model.deletable)
+          Tooltip(
+            message: 'Delete',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              child: const Icon(Ionicons.trash, size: Style.ICON_SMALL),
+              onTap: () => showPopUp(
+                context,
+                ConfirmationDialog(
+                  title: 'Delete?',
+                  mainAction: 'Yes',
+                  secondaryAction: 'No',
+                  onConfirm: () => widget.feed.deleteActivity(widget.model.id),
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(width: 10),
         Tooltip(
-          message: !widget.activity.isSubscribed ? 'Subscribe' : 'Unsubscribe',
+          message: !widget.model.isSubscribed ? 'Subscribe' : 'Unsubscribe',
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
-              setState(() => widget.activity.toggleSubscription());
-              Activity.toggleSubscription(widget.activity).then((ok) {
-                if (!ok) setState(() => widget.activity.toggleSubscription());
-              });
+              setState(() => widget.model.toggleSubscription());
+              Activity.toggleSubscription(widget.model).then(
+                (ok) => ok
+                    ? widget.feed.updateActivity(widget.model)
+                    : setState(() => widget.model.toggleSubscription()),
+              );
             },
             child: Icon(
               Ionicons.notifications,
               size: Style.ICON_SMALL,
-              color: !widget.activity.isSubscribed
+              color: !widget.model.isSubscribed
                   ? null
                   : Theme.of(context).accentColor,
             ),
@@ -162,51 +179,44 @@ class __InteractionButtonsState extends State<_InteractionButtons> {
           message: 'Replies',
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () {
-              if (widget.canPushPage)
-                Get.toNamed(
-                  ActivityPage.ROUTE,
-                  arguments: [
-                    widget.activity.id,
-                    widget.activity,
-                    (ActivityModel other) => setState(
-                          () => widget.activity.updateFrom(other),
-                        ),
-                  ],
-                  parameters: {'id': widget.activity.id.toString()},
-                );
-            },
+            onTap: () => Get.toNamed(
+              ActivityPage.ROUTE,
+              arguments: [
+                widget.model.id,
+                widget.feed.id?.toString() ?? Feed.HOME_FEED_TAG,
+              ],
+              parameters: {'id': widget.model.id.toString()},
+            ),
             child: Row(
               children: [
                 Text(
-                  widget.activity.replyCount.toString(),
+                  widget.model.replyCount.toString(),
                   style: Theme.of(context).textTheme.subtitle2,
                 ),
                 const SizedBox(width: 5),
-                const Icon(
-                  Ionicons.chatbox,
-                  size: Style.ICON_SMALL,
-                ),
+                const Icon(Ionicons.chatbox, size: Style.ICON_SMALL),
               ],
             ),
           ),
         ),
         const SizedBox(width: 10),
         Tooltip(
-          message: !widget.activity.isLiked ? 'Like' : 'Unlike',
+          message: !widget.model.isLiked ? 'Like' : 'Unlike',
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
-              setState(() => widget.activity.toggleLike());
-              Activity.toggleLike(widget.activity).then((ok) {
-                if (!ok) setState(() => widget.activity.toggleLike());
-              });
+              setState(() => widget.model.toggleLike());
+              Activity.toggleLike(widget.model).then(
+                (ok) => ok
+                    ? widget.feed.updateActivity(widget.model)
+                    : setState(() => widget.model.toggleLike()),
+              );
             },
             child: Row(
               children: [
                 Text(
-                  widget.activity.likeCount.toString(),
-                  style: !widget.activity.isLiked
+                  widget.model.likeCount.toString(),
+                  style: !widget.model.isLiked
                       ? Theme.of(context).textTheme.subtitle2
                       : Theme.of(context)
                           .textTheme
@@ -217,7 +227,7 @@ class __InteractionButtonsState extends State<_InteractionButtons> {
                 Icon(
                   Icons.favorite,
                   size: Style.ICON_SMALL,
-                  color: widget.activity.isLiked
+                  color: widget.model.isLiked
                       ? Theme.of(context).errorColor
                       : null,
                 ),
@@ -230,13 +240,13 @@ class __InteractionButtonsState extends State<_InteractionButtons> {
   }
 }
 
-class _MediaBox extends StatelessWidget {
+class MediaBox extends StatelessWidget {
   final ActivityModel activity;
-  _MediaBox(this.activity);
+  MediaBox(this.activity);
 
   @override
   Widget build(BuildContext context) {
-    return BrowseIndexer(
+    return ExploreIndexer(
       id: activity.mediaId!,
       imageUrl: activity.mediaImage,
       browsable: activity.mediaType!,

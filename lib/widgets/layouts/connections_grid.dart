@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:otraku/models/helper_models/connection.dart';
+import 'package:otraku/models/connection_model.dart';
 import 'package:otraku/utils/config.dart';
-import 'package:otraku/widgets/browse_indexer.dart';
+import 'package:otraku/widgets/explore_indexer.dart';
 import 'package:otraku/widgets/fade_image.dart';
 import 'package:otraku/widgets/layouts/sliver_grid_delegates.dart';
 
 class ConnectionsGrid extends StatefulWidget {
-  final List<Connection> connections;
+  final List<ConnectionModel> connections;
   final String? preferredSubtitle;
 
   ConnectionsGrid({
@@ -28,7 +28,7 @@ class _ConnectionsGridState extends State<ConnectionsGrid> {
           ),
           childCount: widget.connections.length,
         ),
-        gridDelegate: SliverGridDelegateWithMinWidthAndFixedHeight(
+        gridDelegate: const SliverGridDelegateWithMinWidthAndFixedHeight(
           minWidth: 300,
           height: 110,
         ),
@@ -36,7 +36,7 @@ class _ConnectionsGridState extends State<ConnectionsGrid> {
 }
 
 class _MediaConnectionTile extends StatelessWidget {
-  final Connection item;
+  final ConnectionModel item;
   final String? preferredSubtitle;
 
   _MediaConnectionTile(this.item, this.preferredSubtitle);
@@ -63,7 +63,7 @@ class _MediaConnectionTile extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: BrowseIndexer(
+              child: ExploreIndexer(
                 id: item.id,
                 browsable: item.browsable,
                 imageUrl: item.imageUrl,
@@ -107,7 +107,7 @@ class _MediaConnectionTile extends StatelessWidget {
             ),
             if (index != null && item.others.length > index)
               Expanded(
-                child: BrowseIndexer(
+                child: ExploreIndexer(
                   id: item.others[index].id,
                   browsable: item.others[index].browsable,
                   imageUrl: item.others[index].imageUrl,

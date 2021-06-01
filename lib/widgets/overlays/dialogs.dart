@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:otraku/utils/config.dart';
 import 'package:otraku/widgets/html_content.dart';
@@ -43,6 +41,51 @@ class __PopUpAnimationState extends State<_PopUpAnimation>
         scale: _anim,
         child: widget.child,
       );
+}
+
+class ConfirmationDialog extends StatelessWidget {
+  final String title;
+  final String? content;
+  final String mainAction;
+  final String? secondaryAction;
+  final void Function()? onConfirm;
+
+  ConfirmationDialog({
+    required this.title,
+    required this.mainAction,
+    this.content,
+    this.secondaryAction,
+    this.onConfirm,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).primaryColor,
+      shape: const RoundedRectangleBorder(borderRadius: Config.BORDER_RADIUS),
+      title: Text(title, style: Theme.of(context).textTheme.headline5),
+      content: content != null
+          ? Text(content!, style: Theme.of(context).textTheme.bodyText1)
+          : null,
+      actions: [
+        if (secondaryAction != null)
+          TextButton(
+            child: Text(
+              secondaryAction!,
+              style: TextStyle(color: Theme.of(context).dividerColor),
+            ),
+            onPressed: Navigator.of(context).pop,
+          ),
+        TextButton(
+          child: Text(mainAction),
+          onPressed: () {
+            onConfirm?.call();
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
+    );
+  }
 }
 
 class ImageDialog extends StatelessWidget {

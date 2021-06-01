@@ -1,5 +1,4 @@
-import 'package:otraku/models/activity_model.dart';
-import 'package:otraku/models/helper_models/browse_result_model.dart';
+import 'package:otraku/models/explorable_model.dart';
 import 'package:otraku/models/page_model.dart';
 import 'package:otraku/models/statistics_model.dart';
 import 'package:otraku/utils/markdown.dart';
@@ -25,16 +24,15 @@ class UserModel {
   final bool isMe;
   final StatisticsModel animeStats;
   final StatisticsModel mangaStats;
-  final following = PageModel<BrowseResultModel>();
-  final followers = PageModel<BrowseResultModel>();
-  final reviews = PageModel<BrowseResultModel>();
-  final activities = PageModel<ActivityModel>();
+  final following = PageModel<ExplorableModel>();
+  final followers = PageModel<ExplorableModel>();
+  final reviews = PageModel<ExplorableModel>();
   final favourites = [
-    PageModel<BrowseResultModel>(),
-    PageModel<BrowseResultModel>(),
-    PageModel<BrowseResultModel>(),
-    PageModel<BrowseResultModel>(),
-    PageModel<BrowseResultModel>(),
+    PageModel<ExplorableModel>(),
+    PageModel<ExplorableModel>(),
+    PageModel<ExplorableModel>(),
+    PageModel<ExplorableModel>(),
+    PageModel<ExplorableModel>(),
   ];
 
   UserModel._({
@@ -75,10 +73,10 @@ class UserModel {
       isFollowing = map['isFollowing'] ?? false;
 
   void addFavs(final int? index, final Map<String, dynamic>? map) {
-    final items = <BrowseResultModel>[];
+    final items = <ExplorableModel>[];
     if (index == null || index == ANIME_FAV) {
       for (final a in map!['anime']['nodes'])
-        items.add(BrowseResultModel.anime(a));
+        items.add(ExplorableModel.anime(a));
       favourites[ANIME_FAV].append(
         items,
         map['anime']['pageInfo']['hasNextPage'],
@@ -87,7 +85,7 @@ class UserModel {
     if (index == null || index == MANGA_FAV) {
       items.clear();
       for (final m in map!['manga']['nodes'])
-        items.add(BrowseResultModel.manga(m));
+        items.add(ExplorableModel.manga(m));
       favourites[MANGA_FAV].append(
         items,
         map['manga']['pageInfo']['hasNextPage'],
@@ -96,7 +94,7 @@ class UserModel {
     if (index == null || index == CHARACTER_FAV) {
       items.clear();
       for (final c in map!['characters']['nodes'])
-        items.add(BrowseResultModel.character(c));
+        items.add(ExplorableModel.character(c));
       favourites[CHARACTER_FAV].append(
         items,
         map['characters']['pageInfo']['hasNextPage'],
@@ -105,7 +103,7 @@ class UserModel {
     if (index == null || index == STAFF_FAV) {
       items.clear();
       for (final s in map!['staff']['nodes'])
-        items.add(BrowseResultModel.staff(s));
+        items.add(ExplorableModel.staff(s));
       favourites[STAFF_FAV].append(
         items,
         map['staff']['pageInfo']['hasNextPage'],
@@ -114,7 +112,7 @@ class UserModel {
     if (index == null || index == STUDIO_FAV) {
       items.clear();
       for (final s in map!['studios']['nodes'])
-        items.add(BrowseResultModel.studio(s));
+        items.add(ExplorableModel.studio(s));
       favourites[STUDIO_FAV].append(
         items,
         map['studios']['pageInfo']['hasNextPage'],
