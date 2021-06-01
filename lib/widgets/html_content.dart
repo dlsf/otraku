@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:ionicons/ionicons.dart';
@@ -21,8 +20,7 @@ class MarkdownContent extends StatelessWidget {
       );
 
   Future<Widget> _future() async {
-    if (!markdown.parsed)
-      markdown.load(await compute(Markdown.parse, markdown.text));
+    await markdown.parse();
     return HtmlContent(markdown.text);
   }
 }
@@ -45,7 +43,6 @@ class HtmlContent extends StatelessWidget {
           Toast.show(context, 'Couldn\'t open link: $err');
         }
       },
-      buildAsync: true,
       buildAsyncBuilder: (_, snapshot) => snapshot.data ?? const _Placeholder(),
       customStylesBuilder: (element) {
         if (element.localName == 'h1' ||
