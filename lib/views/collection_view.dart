@@ -7,16 +7,16 @@ import 'package:otraku/widgets/navigation/custom_drawer.dart';
 import 'package:otraku/widgets/navigation/nav_bar.dart';
 import 'package:otraku/widgets/navigation/headline_header.dart';
 
-import '../../utils/client.dart';
+import '../utils/client.dart';
 
-class CollectionPage extends StatelessWidget {
+class CollectionView extends StatelessWidget {
   static const ROUTE = '/collection';
 
   final int id;
   final bool ofAnime;
   final String ctrlTag;
 
-  CollectionPage({
+  CollectionView({
     required this.id,
     required this.ofAnime,
     required this.ctrlTag,
@@ -28,7 +28,7 @@ class CollectionPage extends StatelessWidget {
       drawerScrimColor: Theme.of(context).primaryColor.withAlpha(150),
       drawer: CollectionDrawer(ctrlTag),
       body: SafeArea(
-        child: CollectionTab(
+        child: HomeCollectionView(
           id: id,
           ofAnime: ofAnime,
           collectionTag: ctrlTag,
@@ -39,12 +39,12 @@ class CollectionPage extends StatelessWidget {
   }
 }
 
-class CollectionTab extends StatelessWidget {
+class HomeCollectionView extends StatelessWidget {
   final int id;
   final bool ofAnime;
   final String collectionTag;
 
-  CollectionTab({
+  HomeCollectionView({
     required this.id,
     required this.ofAnime,
     required this.collectionTag,

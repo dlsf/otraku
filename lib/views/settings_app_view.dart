@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:otraku/utils/convert.dart';
 import 'package:otraku/enums/themes.dart';
 import 'package:otraku/utils/config.dart';
-import 'package:otraku/pages/home/home_page.dart';
+import 'package:otraku/views/home_view.dart';
 import 'package:otraku/widgets/fields/drop_down_field.dart';
 import 'package:otraku/widgets/navigation/nav_bar.dart';
 
-class PersonalisationTab extends StatelessWidget {
-  const PersonalisationTab();
+class SettingsAppView extends StatelessWidget {
+  const SettingsAppView();
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -33,13 +33,13 @@ class PersonalisationTab extends StatelessWidget {
                 child: DropDownField<int>(
                   title: 'Startup Page',
                   value: Config.storage.read(Config.STARTUP_PAGE) ??
-                      HomePage.ANIME_LIST,
+                      HomeView.ANIME_LIST,
                   items: {
-                    'Feed': HomePage.FEED,
-                    'Anime List': HomePage.ANIME_LIST,
-                    'Manga List': HomePage.MANGA_LIST,
-                    'Explore': HomePage.EXPLORE,
-                    'Profile': HomePage.PROFILE,
+                    'Feed': HomeView.FEED,
+                    'Anime List': HomeView.ANIME_LIST,
+                    'Manga List': HomeView.MANGA_LIST,
+                    'Explore': HomeView.EXPLORE,
+                    'Profile': HomeView.PROFILE,
                   },
                   onChanged: (val) =>
                       Config.storage.write(Config.STARTUP_PAGE, val),

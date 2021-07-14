@@ -15,13 +15,13 @@ import 'package:otraku/widgets/navigation/top_sliver_header.dart';
 import 'package:otraku/widgets/overlays/dialogs.dart';
 import 'package:otraku/widgets/overlays/sheets.dart';
 
-class StaffPage extends StatelessWidget {
+class StaffView extends StatelessWidget {
   static const ROUTE = '/staff';
 
   final int id;
   final String imageUrl;
 
-  StaffPage(this.id, this.imageUrl);
+  StaffView(this.id, this.imageUrl);
 
   @override
   Widget build(BuildContext context) {
