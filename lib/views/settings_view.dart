@@ -7,19 +7,14 @@ import 'package:otraku/views/settings_app_view.dart';
 import 'package:otraku/views/settings_content_view.dart';
 import 'package:otraku/views/settings_notifications_view.dart';
 import 'package:otraku/views/settings_about_view.dart';
-import 'package:otraku/widgets/navigation/custom_app_bar.dart';
+import 'package:otraku/widgets/navigation/app_bars.dart';
 import 'package:otraku/widgets/navigation/nav_bar.dart';
 
 class SettingsView extends StatelessWidget {
   Widget build(BuildContext context) {
-    const pageNames = {
-      0: 'Personalisation',
-      1: 'Content',
-      2: 'Notifications',
-      3: 'About',
-    };
+    const _pageNames = ['App', 'Content', 'Notifications', 'About'];
 
-    const tabs = [
+    const _tabs = [
       SettingsAppView(),
       SettingsContentView(),
       SettingsNotificationsView(),
@@ -31,7 +26,7 @@ class SettingsView extends StatelessWidget {
         extendBody: true,
         bottomNavigationBar: NavBar(
           options: const {
-            'Personalisation': Ionicons.color_palette_outline,
+            'App': Ionicons.color_palette_outline,
             'Content': Ionicons.tv_outline,
             'Notifications': Ionicons.notifications_outline,
             'About': Ionicons.person_circle_outline,
@@ -39,10 +34,10 @@ class SettingsView extends StatelessWidget {
           onChanged: (page) => settings.pageIndex = page,
           initial: settings.pageIndex,
         ),
-        appBar: CustomAppBar(title: pageNames[settings.pageIndex]),
+        appBar: ShadowAppBar(title: _pageNames[settings.pageIndex]),
         body: AnimatedSwitcher(
           duration: Config.TAB_SWITCH_DURATION,
-          child: tabs[settings.pageIndex],
+          child: _tabs[settings.pageIndex],
         ),
       ),
     );

@@ -8,9 +8,7 @@ import 'package:otraku/routing/navigation.dart';
 import 'package:otraku/utils/config.dart';
 import 'package:otraku/widgets/overlays/dialogs.dart';
 
-class Client {
-  Client._();
-
+abstract class Client {
   static final _url = Uri.parse('https://graphql.anilist.co');
 
   static const _idQuery = 'query Id {Viewer {id}}';
@@ -135,17 +133,20 @@ class Client {
     IOException? ioErr,
     List<String>? apiErr,
   }) {
-    if (popOnErr) {
-      final context = Navigation.it.ctx;
-      if (context != null) Navigator.pop(context);
-    }
+    final context = Navigation.it.ctx;
+    if (context == null) return;
+
+    if (popOnErr) Navigator.pop(context);
 
     if (ioErr != null && ioErr is SocketException) {
-      Navigation.it.dialog(ConfirmationDialog(
-        content: ioErr.toString(),
-        title: 'Internet connection problem',
-        mainAction: 'Ok',
-      ));
+      showPopUp(
+        context,
+        ConfirmationDialog(
+          content: ioErr.toString(),
+          title: 'Internet connection problem',
+          mainAction: 'Ok',
+        ),
+      );
       return;
     }
 
@@ -158,11 +159,14 @@ class Client {
 
     final text = ioErr?.toString() ?? apiErr!.join('\n');
 
-    Navigation.it.dialog(ConfirmationDialog(
-      content: text,
-      title:
-          ioErr == null ? 'A query error occured' : 'A request error occured',
-      mainAction: 'Sad',
-    ));
+    showPopUp(
+      context,
+      ConfirmationDialog(
+        content: text,
+        title:
+            ioErr == null ? 'A query error occured' : 'A request error occured',
+        mainAction: 'Sad',
+      ),
+    );
   }
 }

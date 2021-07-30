@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-import 'package:otraku/enums/list_sort.dart';
+import 'package:otraku/enums/entry_sort.dart';
 import 'package:otraku/enums/list_status.dart';
 import 'package:otraku/enums/score_format.dart';
 import 'package:otraku/utils/convert.dart';
@@ -8,9 +8,9 @@ import 'package:otraku/models/entry_model.dart';
 import 'package:otraku/models/list_entry_model.dart';
 import 'package:otraku/utils/filterable.dart';
 import 'package:otraku/utils/client.dart';
-import 'package:otraku/utils/scroll_x_controller.dart';
+import 'package:otraku/utils/overscroll_controller.dart';
 
-class CollectionController extends ScrollxController implements Filterable {
+class CollectionController extends OverscrollController implements Filterable {
   // ***************************************************************************
   // CONSTANTS
   // ***************************************************************************
@@ -45,7 +45,7 @@ class CollectionController extends ScrollxController implements Filterable {
               chapters
               volumes
               coverImage {large}
-              nextAiringEpisode {timeUntilAiring episode}
+              nextAiringEpisode {episode airingAt}
               genres
             }
           }
@@ -95,7 +95,7 @@ class CollectionController extends ScrollxController implements Filterable {
             chapters
             volumes
             coverImage {large}
-            nextAiringEpisode {timeUntilAiring episode}
+            nextAiringEpisode {episode airingAt}
             genres
           }
         }
@@ -162,13 +162,6 @@ class CollectionController extends ScrollxController implements Filterable {
     filter();
   }
 
-  int get totalEntryCount {
-    int c = 0;
-    for (final list in _lists)
-      if (list.status != null) c += list.entries.length;
-    return c;
-  }
-
   List<String> get names {
     final n = <String>[];
     for (final list in _lists) n.add(list.name);
@@ -215,7 +208,7 @@ class CollectionController extends ScrollxController implements Filterable {
         ) ??
         ScoreFormat.POINT_10_DECIMAL;
 
-    _filters[Filterable.SORT] = ListSortHelper.getEnum(
+    _filters[Filterable.SORT] = EntrySortHelper.getEnum(
       data['user']['mediaListOptions']['rowOrder'],
     );
 
@@ -249,39 +242,36 @@ class CollectionController extends ScrollxController implements Filterable {
   Future<void> fetchPage() async {}
 
   Future<void> updateEntry(EntryModel oldEntry, EntryModel newEntry) async {
-    // Update database item
+    // Update database item.
+    final data = await Client.request(_updateEntryMutation, newEntry.toMap());
+    if (data == null) return;
+
+    final entry = ListEntryModel(data['SaveMediaListEntry']);
+
+    // Update the entry model (necessary for the updateEntry() caller).
+    newEntry.entryId = data['SaveMediaListEntry']['id'];
+
+    // Find from which custom lists to remove the item and in which to add it.
     final oldCustomLists = oldEntry.customLists.entries
         .where((e) => e.value)
         .map((e) => e.key.toLowerCase())
         .toList();
     final newCustomLists = newEntry.customLists.entries
         .where((e) => e.value)
-        .map((e) => e.key)
+        .map((e) => e.key.toLowerCase())
         .toList();
 
-    final data = await Client.request(_updateEntryMutation, newEntry.toMap());
-    if (data == null) return;
-
-    // Update the entry model (necessary for the updateEntry() caller).
-    newEntry.entryId = data['SaveMediaListEntry']['id'];
-
-    final entry = ListEntryModel(data['SaveMediaListEntry']);
-
-    for (int i = 0; i < newCustomLists.length; i++)
-      newCustomLists[i] = newCustomLists[i].toLowerCase();
-
-    // Remove from old status list
-    if (!oldEntry.hiddenFromStatusLists)
+    // Remove from old status list.
+    if (oldEntry.status != null && !oldEntry.hiddenFromStatusLists)
       for (final list in _lists)
-        if (oldEntry.status != null &&
-            oldEntry.status == list.status &&
+        if (oldEntry.status == list.status &&
             (list.splitCompletedListFormat == null ||
                 list.splitCompletedListFormat == entry.format)) {
           list.removeByMediaId(entry.mediaId);
           break;
         }
 
-    // Remove from old custom lists
+    // Remove from old custom lists.
     if (oldCustomLists.isNotEmpty)
       for (final list in _lists)
         for (int i = 0; i < oldCustomLists.length; i++)
@@ -291,7 +281,7 @@ class CollectionController extends ScrollxController implements Filterable {
             break;
           }
 
-    // Add to new status list
+    // Add to new status list.
     if (!newEntry.hiddenFromStatusLists) {
       bool added = false;
       for (final list in _lists)
@@ -308,7 +298,7 @@ class CollectionController extends ScrollxController implements Filterable {
       }
     }
 
-    // Add to new custom lists
+    // Add to new custom lists.
     if (newCustomLists.isNotEmpty) {
       for (final list in _lists)
         for (int i = 0; i < newCustomLists.length; i++)
@@ -323,10 +313,10 @@ class CollectionController extends ScrollxController implements Filterable {
       }
     }
 
-    // Remove empty lists
+    // Remove empty lists.
     for (int i = 0; i < _lists.length; i++)
       if (_lists[i].entries.isEmpty) {
-        if (i <= _listIndex.value) _listIndex.value--;
+        if (i <= _listIndex.value && _listIndex() != 0) _listIndex.value--;
         _lists.removeAt(i--);
       }
 
@@ -336,23 +326,27 @@ class CollectionController extends ScrollxController implements Filterable {
   Future<void> updateProgress(ListEntryModel e) async {
     if (e.progress == e.progressMax) return;
 
+    // Update database item.
     final data = await Client.request(
       _updateProgressMutation,
-      e.progressToMap(),
+      {'mediaId': e.mediaId, 'progress': e.progress + 1},
       popOnErr: false,
     );
     if (data == null) return;
 
     e.updateProgress(data['SaveMediaListEntry']);
 
-    final ListSort sorting = _filters[Filterable.SORT];
+    final EntrySort sorting = _filters[Filterable.SORT];
     final ListStatus? entryStatus = Convert.strToEnum(
       e.status,
       ListStatus.values,
     );
 
-    // If sorting doesn't depend on progress, replace entry
-    if (sorting != ListSort.PROGRESS && sorting != ListSort.PROGRESS_DESC)
+    // If sorting doesn't depend on progress or updated time, replace entry.
+    if (sorting != EntrySort.PROGRESS &&
+        sorting != EntrySort.PROGRESS_DESC &&
+        sorting != EntrySort.UPDATED_AT &&
+        sorting != EntrySort.UPDATED_AT_DESC)
       for (final list in _lists) {
         if (list.status != null && list.status != entryStatus) continue;
 
@@ -362,7 +356,7 @@ class CollectionController extends ScrollxController implements Filterable {
             break;
           }
       }
-    // Otherwise, remove and insert sorted
+    // Otherwise, remove and insert sorted.
     else
       for (final list in _lists) {
         if (list.status != null && list.status != entryStatus) continue;
@@ -375,7 +369,7 @@ class CollectionController extends ScrollxController implements Filterable {
           }
       }
 
-    // Replace in filtered
+    // Replace in filtered.
     for (int i = 0; i < _entries.length; i++)
       if (_entries[i].mediaId == e.mediaId) {
         _entries[i] = e;
@@ -384,6 +378,7 @@ class CollectionController extends ScrollxController implements Filterable {
   }
 
   Future<void> removeEntry(EntryModel entry) async {
+    // Update database item.
     final data = await Client.request(
       _removeEntryMutation,
       {'entryId': entry.entryId},
@@ -393,20 +388,31 @@ class CollectionController extends ScrollxController implements Filterable {
     if (data == null || data['DeleteMediaListEntry']['deleted'] == false)
       return;
 
-    final List<String> customLists = [];
-    for (final cl in entry.customLists.entries)
-      if (cl.value) customLists.add(cl.key.toLowerCase());
+    final customLists = entry.customLists.entries
+        .where((e) => e.value)
+        .map((e) => e.key.toLowerCase())
+        .toList();
 
-    for (final list in _lists)
-      if ((!entry.hiddenFromStatusLists &&
-              entry.status == list.status &&
-              !list.isCustomList) ||
-          (list.isCustomList && customLists.contains(list.name.toLowerCase())))
-        list.removeByMediaId(entry.mediaId);
+    // Remove from status list.
+    if (!entry.hiddenFromStatusLists)
+      for (final list in _lists)
+        if (!list.isCustomList && list.status == entry.status)
+          list.removeByMediaId(entry.mediaId);
 
+    // Remove from custom lists.
+    if (customLists.isNotEmpty)
+      for (final list in _lists)
+        for (int i = 0; i < customLists.length; i++)
+          if (customLists[i] == list.name.toLowerCase()) {
+            list.removeByMediaId(entry.mediaId);
+            customLists.removeAt(i);
+            break;
+          }
+
+    // Remove empty lists.
     for (int i = 0; i < _lists.length; i++)
       if (_lists[i].entries.isEmpty) {
-        if (i <= _listIndex.value) _listIndex.value--;
+        if (i <= _listIndex.value && _listIndex() != 0) _listIndex.value--;
         _lists.removeAt(i--);
       }
 

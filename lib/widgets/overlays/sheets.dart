@@ -5,7 +5,7 @@ import 'package:otraku/controllers/collection_controller.dart';
 import 'package:otraku/models/tag_model.dart';
 import 'package:otraku/utils/config.dart';
 import 'package:otraku/controllers/viewer_controller.dart';
-import 'package:otraku/enums/list_sort.dart';
+import 'package:otraku/enums/entry_sort.dart';
 import 'package:otraku/enums/media_sort.dart';
 import 'package:otraku/enums/themes.dart';
 import 'package:otraku/utils/filterable.dart';
@@ -18,17 +18,19 @@ class Sheet extends StatelessWidget {
     required BuildContext ctx,
     required Widget sheet,
     bool isScrollControlled = false,
+    Color? barrierColour,
   }) =>
       showModalBottomSheet(
         context: ctx,
         builder: (_) => sheet,
         isScrollControlled: isScrollControlled,
         backgroundColor: Colors.transparent,
+        barrierColor: barrierColour,
       );
 
   final Widget child;
   final double? height;
-  final Function? onDone;
+  final void Function()? onDone;
 
   Sheet({
     required this.child,
@@ -179,11 +181,11 @@ class SelectionSheet<T> extends StatelessWidget {
                           ? 2
                           : 0,
                   onChanged: (state) {
-                    if (state == 0) {
+                    if (state == 0)
                       exclusive!.remove(values[index]);
-                    } else if (state == 1) {
+                    else if (state == 1)
                       inclusive.add(values[index]);
-                    } else {
+                    else {
                       inclusive.remove(values[index]);
                       exclusive!.add(values[index]);
                     }
@@ -269,8 +271,8 @@ class TagSelectionSheet extends StatelessWidget {
 }
 
 class _SortSheet extends StatelessWidget {
-  final List<String?> options;
-  final int? index;
+  final List<String> options;
+  final int index;
   final bool desc;
   final Function(int, bool) onTap;
 
@@ -308,7 +310,7 @@ class _SortSheet extends StatelessWidget {
                 itemBuilder: (_, i) => ListTile(
                   dense: true,
                   title: Text(
-                    options[i]!,
+                    options[i],
                     style: i != index
                         ? Theme.of(context).textTheme.bodyText2
                         : Theme.of(context).textTheme.bodyText1,
@@ -371,22 +373,20 @@ class _SortSheet extends StatelessWidget {
 }
 
 class CollectionSortSheet extends StatelessWidget {
-  final String? collectionTag;
-
+  final String collectionTag;
   CollectionSortSheet(this.collectionTag);
 
   @override
   Widget build(BuildContext context) {
     final collection = Get.find<CollectionController>(tag: collectionTag);
 
-    final mediaSort = collection.getFilterWithKey(Filterable.SORT);
-    final currentIndex = mediaSort.homeIndex ~/ 2;
-    final currentlyDesc = mediaSort.homeIndex % 2 == 0 ? false : true;
+    final EntrySort entrySort = collection.getFilterWithKey(Filterable.SORT);
+    final currentIndex = entrySort.index ~/ 2;
+    final currentlyDesc = entrySort.index % 2 == 0 ? false : true;
 
-    List<String?> options = [];
-    for (int i = 0; i < ListSort.values.length; i += 2) {
-      options.add(Convert.clarifyEnum(describeEnum(ListSort.values[i])));
-    }
+    final options = <String>[];
+    for (int i = 0; i < EntrySort.values.length; i += 2)
+      options.add(Convert.clarifyEnum(describeEnum(EntrySort.values[i]))!);
 
     return _SortSheet(
       options: options,
@@ -396,8 +396,8 @@ class CollectionSortSheet extends StatelessWidget {
         collection.setFilterWithKey(
           Filterable.SORT,
           value: desc
-              ? ListSort.values[index * 2 + 1]
-              : ListSort.values[index * 2],
+              ? EntrySort.values[index * 2 + 1]
+              : EntrySort.values[index * 2],
         );
         collection.sort();
       },
@@ -407,8 +407,7 @@ class CollectionSortSheet extends StatelessWidget {
 
 class MediaSortSheet extends StatelessWidget {
   final MediaSort initial;
-  final Function(MediaSort) onTap;
-
+  final void Function(MediaSort) onTap;
   MediaSortSheet(this.initial, this.onTap);
 
   @override
@@ -432,14 +431,11 @@ class MediaSortSheet extends StatelessWidget {
     int currentIndex = initial.index ~/ 2;
     bool currentlyDesc = initial.index % 2 == 0 ? false : true;
 
-    if (currentIndex > (length - 5) ~/ 2) {
-      currentIndex = (length - 6) ~/ 2;
-    }
+    if (currentIndex > (length - 5) ~/ 2) currentIndex = (length - 6) ~/ 2;
 
-    List<String?> options = [];
-    for (int i = 0; i < length - 6; i += 2) {
-      options.add(Convert.clarifyEnum(describeEnum(MediaSort.values[i])));
-    }
+    final options = <String>[];
+    for (int i = 0; i < length - 6; i += 2)
+      options.add(Convert.clarifyEnum(describeEnum(MediaSort.values[i]))!);
     options.add('Title');
 
     return _SortSheet(
@@ -447,19 +443,12 @@ class MediaSortSheet extends StatelessWidget {
       index: currentIndex,
       desc: currentlyDesc,
       onTap: (index, desc) {
-        if (index != options.length - 1) {
-          if (desc) {
-            onTap(MediaSort.values[index * 2 + 1]);
-          } else {
-            onTap(MediaSort.values[index * 2]);
-          }
-        } else {
-          if (desc) {
-            onTap(titleDesc);
-          } else {
-            onTap(titleAsc);
-          }
-        }
+        if (index != options.length - 1)
+          desc
+              ? onTap(MediaSort.values[index * 2 + 1])
+              : onTap(MediaSort.values[index * 2]);
+        else
+          desc ? onTap(titleDesc) : onTap(titleAsc);
       },
     );
   }

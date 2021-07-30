@@ -96,9 +96,7 @@ extension Style on Themes {
         decoration: BoxDecoration(
           color: theme['foreground'],
           borderRadius: Config.BORDER_RADIUS,
-          boxShadow: [
-            BoxShadow(color: theme['background'], blurRadius: 10),
-          ],
+          boxShadow: [BoxShadow(color: theme['background'], blurRadius: 10)],
         ),
         textStyle:
             TextStyle(fontSize: Style.FONT_MEDIUM, color: theme['faded']),
@@ -152,7 +150,7 @@ extension Style on Themes {
           backgroundColor: MaterialStateProperty.all(theme['accent']),
           foregroundColor: MaterialStateProperty.all(theme['background']),
           overlayColor: MaterialStateProperty.all(theme['highlight']),
-          shape: MaterialStateProperty.all(RoundedRectangleBorder(
+          shape: MaterialStateProperty.all(const RoundedRectangleBorder(
             borderRadius: Config.BORDER_RADIUS,
           )),
         ),

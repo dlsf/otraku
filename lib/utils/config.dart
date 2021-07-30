@@ -5,11 +5,12 @@ import 'package:get_storage/get_storage.dart';
 import 'package:otraku/views/home_view.dart';
 
 // Holds constants and configurations utilised throughout the whole app.
-class Config {
+abstract class Config {
   // Storage keys.
   static const STARTUP_PAGE = 'startupPage';
   static const FOLLOWING_FEED = 'feedMode';
   static const LAST_NOTIFICATION_COUNT = 'lastNotificationCount';
+  static const CLOCK_TYPE = '12hourClock';
 
   // Constants.
   static const MATERIAL_TAP_TARGET_SIZE = 48.0;

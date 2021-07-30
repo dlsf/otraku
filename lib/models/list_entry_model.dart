@@ -7,7 +7,7 @@ class ListEntryModel {
   final String? format;
   final String? status;
   final int? nextEpisode;
-  final String? timeUntilAiring;
+  final int? airingAt;
   final int? createdAt;
   final int? updatedAt;
   final List<String> genres;
@@ -28,7 +28,7 @@ class ListEntryModel {
     required this.format,
     required this.status,
     required this.nextEpisode,
-    required this.timeUntilAiring,
+    required this.airingAt,
     required this.createdAt,
     required this.updatedAt,
     required this.genres,
@@ -47,12 +47,8 @@ class ListEntryModel {
         mediaId: map['mediaId'],
         title: map['media']['title']['userPreferred'],
         cover: map['media']['coverImage']['large'],
-        nextEpisode: map['media']['nextAiringEpisode'] != null
-            ? map['media']['nextAiringEpisode']['episode']
-            : null,
-        timeUntilAiring: Convert.secondsToCountdownStr(
-          map['media']['nextAiringEpisode']?['timeUntilAiring'],
-        ),
+        nextEpisode: map['media']['nextAiringEpisode']?['episode'],
+        airingAt: map['media']['nextAiringEpisode']?['airingAt'],
         format: map['media']['format'],
         status: map['media']['status'],
         progress: map['progress'] ?? 0,
@@ -74,9 +70,6 @@ class ListEntryModel {
     if (nextEpisode != null) return progress / (nextEpisode! - 1);
     return 1;
   }
-
-  Map<String, int> progressToMap() =>
-      {'mediaId': mediaId, 'progress': progress + 1};
 
   void updateProgress(Map<String, dynamic> map) => progress = map['progress'];
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:otraku/utils/config.dart';
-import 'package:otraku/widgets/action_icon.dart';
 import 'package:otraku/widgets/favourite_button.dart';
+import 'package:otraku/widgets/navigation/app_bars.dart';
 
+// This is to be merged into SliverShadowAppBar, after
+// changes in how favouriting is handled take place.
 class TopSliverHeader extends StatelessWidget {
   final String? text;
   final bool? isFavourite;
@@ -55,7 +57,6 @@ class _Delegate implements SliverPersistentHeaderDelegate {
 
     return Container(
       height: Config.MATERIAL_TAP_TARGET_SIZE,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).backgroundColor,
         boxShadow: [
@@ -67,36 +68,33 @@ class _Delegate implements SliverPersistentHeaderDelegate {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          ActionIcon(
-            dimmed: false,
+          AppBarIcon(
             tooltip: 'Close',
             icon: Icons.close_rounded,
             onTap: () => Navigator.pop(context),
           ),
           if (text != null && isFavourite != null && favourites != null) ...[
-            const SizedBox(width: 15),
-            if (shrinkPercentage >= 0.5)
-              Expanded(
-                child: Opacity(
-                  opacity: shrinkPercentage,
-                  child: Text(
-                    text!,
-                    style: Theme.of(context).textTheme.headline5,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
+            Expanded(
+              child: shrinkPercentage >= 0.5
+                  ? Opacity(
+                      opacity: shrinkPercentage,
+                      child: Text(
+                        text!,
+                        style: Theme.of(context).textTheme.headline5,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )
+                  : const SizedBox(),
+            ),
             FavouriteButton(
               favourites: favourites!,
               isFavourite: isFavourite!,
               shrinkPercentage: shrinkPercentage,
               onTap: toggleFavourite,
             ),
-          ] else
-            const SizedBox(),
+          ],
         ],
       ),
     );

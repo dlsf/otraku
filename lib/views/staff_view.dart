@@ -6,11 +6,10 @@ import 'package:otraku/models/staff_model.dart';
 import 'package:otraku/utils/config.dart';
 import 'package:otraku/controllers/staff_controller.dart';
 import 'package:otraku/utils/convert.dart';
-import 'package:otraku/widgets/action_icon.dart';
 import 'package:otraku/widgets/fields/input_field_structure.dart';
 import 'package:otraku/widgets/navigation/bubble_tabs.dart';
 import 'package:otraku/widgets/layouts/connections_grid.dart';
-import 'package:otraku/widgets/navigation/opaque_header.dart';
+import 'package:otraku/widgets/navigation/app_bars.dart';
 import 'package:otraku/widgets/navigation/top_sliver_header.dart';
 import 'package:otraku/widgets/overlays/dialogs.dart';
 import 'package:otraku/widgets/overlays/sheets.dart';
@@ -92,39 +91,37 @@ class StaffView extends StatelessWidget {
                   (axis == Axis.vertical ? coverHeight * 2 : coverHeight) +
                       Config.PADDING.top * 2;
 
-              return OpaqueHeader(
-                [
-                  staff.characters.items.isNotEmpty &&
-                          staff.roles.items.isNotEmpty
-                      ? BubbleTabs<bool>(
-                          options: const ['Characters', 'Staff Roles'],
-                          values: const [true, false],
-                          initial: true,
-                          onNewValue: (value) {
-                            staff.onCharacters = value;
-                            staff.scrollTo(offset);
-                          },
-                          onSameValue: (_) => staff.scrollTo(offset),
-                        )
-                      : const SizedBox(),
-                  const Spacer(),
-                  ActionIcon(
-                    tooltip: 'Sort',
-                    icon: Ionicons.filter_outline,
-                    onTap: () => Sheet.show(
-                      ctx: context,
-                      sheet: MediaSortSheet(
-                        staff.sort,
-                        (sort) {
-                          staff.sort = sort;
+              return SliverShadowAppBar([
+                staff.characters.items.isNotEmpty &&
+                        staff.roles.items.isNotEmpty
+                    ? BubbleTabs<bool>(
+                        options: const ['Characters', 'Staff Roles'],
+                        values: const [true, false],
+                        initial: true,
+                        onNewValue: (value) {
+                          staff.onCharacters = value;
                           staff.scrollTo(offset);
                         },
-                      ),
-                      isScrollControlled: true,
+                        onSameValue: (_) => staff.scrollTo(offset),
+                      )
+                    : const SizedBox(),
+                const Spacer(),
+                AppBarIcon(
+                  tooltip: 'Sort',
+                  icon: Ionicons.filter_outline,
+                  onTap: () => Sheet.show(
+                    ctx: context,
+                    sheet: MediaSortSheet(
+                      staff.sort,
+                      (sort) {
+                        staff.sort = sort;
+                        staff.scrollTo(offset);
+                      },
                     ),
+                    isScrollControlled: true,
                   ),
-                ],
-              );
+                ),
+              ]);
             }),
             Obx(() {
               final connections =

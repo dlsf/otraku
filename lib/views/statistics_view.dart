@@ -6,7 +6,7 @@ import 'package:otraku/models/statistics_model.dart';
 import 'package:otraku/utils/config.dart';
 import 'package:otraku/widgets/layouts/sliver_grid_delegates.dart';
 import 'package:otraku/widgets/navigation/bubble_tabs.dart';
-import 'package:otraku/widgets/navigation/custom_app_bar.dart';
+import 'package:otraku/widgets/navigation/app_bars.dart';
 import 'package:otraku/widgets/navigation/nav_bar.dart';
 import 'package:otraku/widgets/pie_chart.dart';
 
@@ -21,7 +21,7 @@ class StatisticsView extends StatelessWidget {
       builder: (stats) {
         return Scaffold(
           extendBody: true,
-          appBar: CustomAppBar(
+          appBar: ShadowAppBar(
             title: stats.onAnime ? 'Anime Statistics' : 'Manga Statistics',
           ),
           bottomNavigationBar: NavBar(
@@ -91,15 +91,15 @@ class _Title extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Row(
-        children: [
-          Text(text, style: Theme.of(context).textTheme.headline6),
-          const Spacer(),
-          if (tabs != null) tabs!,
-        ],
-      ),
+    return Row(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(text, style: Theme.of(context).textTheme.headline6),
+        ),
+        const Spacer(),
+        if (tabs != null) tabs!,
+      ],
     );
   }
 }
@@ -303,7 +303,7 @@ class _Card extends StatelessWidget {
             ),
             child: Row(
               children: [
-                PieChart(counts),
+                Flexible(child: PieChart(counts)),
                 const SizedBox(width: 10),
                 SizedBox(
                   width: 150,
