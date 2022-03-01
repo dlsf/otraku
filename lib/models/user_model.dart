@@ -13,7 +13,7 @@ class UserModel {
 
   final int? id;
   final String name;
-  final Markdown? description;
+  final Markdown description;
   final String? avatar;
   final String? banner;
   bool isFollowing;
@@ -58,7 +58,7 @@ class UserModel {
   factory UserModel(final Map<String, dynamic> map, bool me) => UserModel._(
         id: map['id'],
         name: map['name'] ?? '',
-        description: map['about'] != null ? Markdown(map['about']) : null,
+        description: Markdown(map['about'] ?? ''),
         avatar: map['avatar']['large'],
         banner: map['bannerImage'],
         isFollowing: map['isFollowing'] ?? false,

@@ -9,20 +9,25 @@ import 'package:otraku/widgets/overlays/toast.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MarkdownContent extends StatelessWidget {
-  final Markdown markdown;
-
   MarkdownContent(this.markdown);
 
-  @override
-  Widget build(BuildContext context) => FutureBuilder<Widget>(
-        future: _future(),
-        builder: (_, snapshot) => snapshot.data ?? const _Placeholder(),
-      );
+  final Markdown markdown;
 
-  Future<Widget> _future() async {
-    await markdown.parse();
+  @override
+  Widget build(BuildContext context) {
+    markdown.parse();
+
     return HtmlContent(markdown.text);
+    // FutureBuilder<Widget>(
+    //   future: _future(),
+    //   builder: (_, snapshot) => snapshot.data ?? const Center(child: Loader()),
+    // );
   }
+
+  // Future<Widget> _future() async {
+  //   await markdown.parse();
+  //   return HtmlContent(markdown.text);
+  // }
 }
 
 class HtmlContent extends StatelessWidget {
@@ -52,7 +57,7 @@ class HtmlContent extends StatelessWidget {
           ConfirmationDialog(
             title: 'Couldn\'t load element ${element.localName}',
             content: err.toString(),
-            mainAction: ':(',
+            mainAction: 'Ok',
           ),
         ),
       ),
@@ -99,10 +104,4 @@ class HtmlContent extends StatelessWidget {
       },
     );
   }
-}
-
-class _Placeholder extends StatelessWidget {
-  const _Placeholder();
-  @override
-  Widget build(BuildContext context) => const Center(child: Loader());
 }

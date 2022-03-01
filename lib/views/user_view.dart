@@ -143,7 +143,7 @@ class HomeUserView extends StatelessWidget {
                 ],
               ),
             ),
-          if (!(user.model?.description.isEmpty ?? true))
+          if (!(user.model?.description.text.isEmpty ?? true))
             SliverToBoxAdapter(
               child: Container(
                 margin: padding,
@@ -152,11 +152,12 @@ class HomeUserView extends StatelessWidget {
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: Consts.BORDER_RAD_MIN,
                 ),
-                child: HtmlContent(user.model!.description),
+                child: MarkdownContent(user.model!.description),
               ),
             ),
           SliverToBoxAdapter(
-              child: SizedBox(height: NavLayout.offset(context))),
+            child: SizedBox(height: NavLayout.offset(context)),
+          ),
         ],
       ),
     );

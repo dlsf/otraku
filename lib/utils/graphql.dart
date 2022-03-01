@@ -294,6 +294,7 @@ abstract class GqlQuery {
     }
   ''';
 
+  // TODO about(asHtml: true)
   static const user = r'''
       query User($id: Int, $page: Int = 1, $withMain: Boolean = false, $withStats: Boolean = false,
         $withAnime: Boolean = false, $withManga: Boolean = false, $withCharacters: Boolean = false,
@@ -313,7 +314,7 @@ abstract class GqlQuery {
       fragment main on User {
         id
         name
-        about(asHtml: true)
+        about
         avatar {large}
         bannerImage
         isFollowing
