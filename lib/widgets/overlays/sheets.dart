@@ -1,455 +1,372 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:otraku/controllers/collection_controller.dart';
-import 'package:otraku/models/tag_model.dart';
-import 'package:otraku/utils/config.dart';
-import 'package:otraku/controllers/viewer_controller.dart';
-import 'package:otraku/enums/entry_sort.dart';
-import 'package:otraku/enums/media_sort.dart';
-import 'package:otraku/enums/themes.dart';
-import 'package:otraku/utils/filterable.dart';
-import 'package:otraku/utils/convert.dart';
-import 'package:otraku/widgets/fields/three_state_field.dart';
-import 'package:otraku/widgets/fields/two_state_field.dart';
+import 'package:ionicons/ionicons.dart';
+import 'package:otraku/constants/consts.dart';
+import 'package:otraku/utils/settings.dart';
+import 'package:otraku/widgets/fields/checkbox_field.dart';
+import 'package:otraku/widgets/overlays/toast.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class Sheet extends StatelessWidget {
-  static void show({
-    required BuildContext ctx,
-    required Widget sheet,
-    bool isScrollControlled = false,
-    Color? barrierColour,
-  }) =>
-      showModalBottomSheet(
-        context: ctx,
-        builder: (_) => sheet,
-        isScrollControlled: isScrollControlled,
-        backgroundColor: Colors.transparent,
-        barrierColor: barrierColour,
-      );
+/// Used to open [DraggableScrollableSheet].
+Future<T?> showSheet<T>(BuildContext context, Widget sheet) =>
+    showModalBottomSheet<T>(
+      context: context,
+      builder: (_) => sheet,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Theme.of(context).colorScheme.surface.withAlpha(150),
+    );
 
-  final Widget child;
-  final double? height;
-  final void Function()? onDone;
+/// An implementation of [DraggableScrollableSheet] with opaque background.
+class OpaqueSheet extends StatelessWidget {
+  OpaqueSheet({required this.builder, this.height = 0.5});
 
-  Sheet({
-    required this.child,
-    this.height,
-    this.onDone,
-  });
+  final Widget Function(BuildContext, ScrollController) builder;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    final sideMargin = MediaQuery.of(context).size.width > 420
-        ? (MediaQuery.of(context).size.width - 400) / 2
-        : 20.0;
+    Widget? sheet;
 
-    return Container(
-      height: height,
-      margin: EdgeInsets.only(
-        left: sideMargin,
-        right: sideMargin,
-        bottom: MediaQuery.of(context).viewPadding.bottom + 10,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).backgroundColor,
-        borderRadius: Config.BORDER_RADIUS,
-      ),
-      child: Column(
-        children: [
-          Expanded(child: child),
-          if (onDone != null)
-            TextButton.icon(
-              onPressed: () {
-                onDone!();
-                Navigator.pop(context);
-              },
-              icon: Icon(
-                Icons.done_rounded,
-                color: Theme.of(context).accentColor,
-                size: Style.ICON_SMALL,
+    return DraggableScrollableSheet(
+      expand: false,
+      maxChildSize: 0.9,
+      initialChildSize: height,
+      minChildSize: height < 0.25 ? height : 0.25,
+      builder: (context, scrollCtrl) {
+        if (sheet == null)
+          sheet = Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: Consts.OVERLAY_TIGHT),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.background,
+                borderRadius:
+                    const BorderRadius.vertical(top: Consts.RADIUS_MAX),
               ),
-              label: Text('Done', style: Theme.of(context).textTheme.bodyText1),
+              child: builder(context, scrollCtrl),
             ),
-        ],
-      ),
+          );
+
+        return sheet!;
+      },
     );
   }
 }
 
-class OptionSheet extends StatelessWidget {
-  final String title;
-  final List<String> options;
-  final int index;
-  final Function(int) onTap;
-
-  OptionSheet({
-    required this.title,
-    required this.options,
-    required this.index,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => Sheet(
-        height: options.length * Config.MATERIAL_TAP_TARGET_SIZE + 50.0,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: Config.PADDING,
-              child: Text(title, style: Theme.of(context).textTheme.subtitle1),
-            ),
-            Expanded(
-              child: ListView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                itemBuilder: (_, i) => ListTile(
-                  dense: true,
-                  title: Text(
-                    options[i],
-                    style: i != index
-                        ? Theme.of(context).textTheme.bodyText2
-                        : Theme.of(context).textTheme.bodyText1,
-                  ),
-                  trailing: Container(
-                    height: 25,
-                    width: 25,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i != index
-                          ? Theme.of(context).primaryColor
-                          : Theme.of(context).accentColor,
-                    ),
-                  ),
-                  onTap: () {
-                    onTap(i);
-                    Navigator.pop(context);
-                  },
-                ),
-                itemCount: options.length,
-                itemExtent: Config.MATERIAL_TAP_TARGET_SIZE,
-              ),
-            ),
-          ],
-        ),
-      );
-}
-
-class SelectionSheet<T> extends StatelessWidget {
-  final List<String> options;
-  final List<T> values;
-  final List<T> inclusive;
-  final List<T>? exclusive;
-  final Function(List<T>, List<T>?) onDone;
-  final bool fixHeight;
-
-  SelectionSheet({
-    required this.onDone,
+/// An implementation of [DraggableScrollableSheet]
+/// with opaque background and list selectable options.
+class SelectionOpaqueSheet<T> extends StatelessWidget {
+  SelectionOpaqueSheet({
     required this.options,
     required this.values,
-    required this.inclusive,
-    this.exclusive,
-    this.fixHeight = false,
+    required this.selected,
   });
 
-  @override
-  Widget build(BuildContext context) => Sheet(
-        height: fixHeight
-            ? options.length * Config.MATERIAL_TAP_TARGET_SIZE + 50
-            : null,
-        child: ListView.builder(
-          physics:
-              fixHeight ? const NeverScrollableScrollPhysics() : Config.PHYSICS,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          itemBuilder: (_, index) => exclusive == null
-              ? TwoStateField(
-                  title: options[index],
-                  initial: inclusive.contains(values[index]),
-                  onChanged: (val) {
-                    if (val)
-                      inclusive.add(values[index]);
-                    else
-                      inclusive.remove(values[index]);
-                  },
-                )
-              : ThreeStateField(
-                  title: options[index],
-                  initialState: inclusive.contains(values[index])
-                      ? 1
-                      : exclusive!.contains(values[index])
-                          ? 2
-                          : 0,
-                  onChanged: (state) {
-                    if (state == 0)
-                      exclusive!.remove(values[index]);
-                    else if (state == 1)
-                      inclusive.add(values[index]);
-                    else {
-                      inclusive.remove(values[index]);
-                      exclusive!.add(values[index]);
-                    }
-                  },
-                ),
-          itemCount: options.length,
-          itemExtent: Config.MATERIAL_TAP_TARGET_SIZE,
-        ),
-        onDone: () => onDone(inclusive, exclusive),
-      );
-}
-
-class TagSelectionSheet extends StatelessWidget {
-  final Map<String, List<TagModel>> tags;
-  final List<String> inclusive;
-  final List<String> exclusive;
-  final Function(List<String>, List<String>) onDone;
-
-  TagSelectionSheet({
-    required this.tags,
-    required this.inclusive,
-    required this.exclusive,
-    required this.onDone,
-  });
+  final List<String> options;
+  final List<T> values;
+  final List<T> selected;
 
   @override
   Widget build(BuildContext context) {
-    int count = 0;
-    final slivers = <Widget>[];
-    for (int i = 0; i < tags.length; i++) {
-      slivers.add(SliverToBoxAdapter(
-        child: Padding(
-          padding: Config.PADDING,
-          child: Text(
-            tags.entries.elementAt(i).key,
-            style: Theme.of(context).textTheme.headline4,
-          ),
+    final requiredHeight =
+        options.length * Consts.MATERIAL_TAP_TARGET_SIZE + 20;
+    double height = requiredHeight / MediaQuery.of(context).size.height;
+    if (height > 0.9) height = 0.9;
+
+    return OpaqueSheet(
+      height: height,
+      builder: (context, scrollCtrl) => ListView.builder(
+        controller: scrollCtrl,
+        physics: Consts.PHYSICS,
+        padding: Consts.PADDING,
+        itemCount: options.length,
+        itemExtent: Consts.MATERIAL_TAP_TARGET_SIZE,
+        itemBuilder: (_, index) => CheckBoxField(
+          title: options[index],
+          initial: selected.contains(values[index]),
+          onChanged: (val) => val
+              ? selected.add(values[index])
+              : selected.remove(values[index]),
         ),
-      ));
-
-      slivers.add(SliverFixedExtentList(
-        delegate: SliverChildBuilderDelegate(
-          (_, index) {
-            final val = tags.entries.elementAt(i).value[index].name;
-            return ThreeStateField(
-              title: val,
-              initialState: inclusive.contains(val)
-                  ? 1
-                  : exclusive.contains(val)
-                      ? 2
-                      : 0,
-              onChanged: (state) {
-                if (state == 0)
-                  exclusive.remove(val);
-                else if (state == 1)
-                  inclusive.add(val);
-                else {
-                  inclusive.remove(val);
-                  exclusive.add(val);
-                }
-              },
-            );
-          },
-          childCount: tags.entries.elementAt(i).value.length,
-          semanticIndexOffset: count,
-        ),
-        itemExtent: Config.MATERIAL_TAP_TARGET_SIZE,
-      ));
-
-      count += tags.entries.elementAt(i).value.length;
-    }
-
-    return Sheet(
-      height: null,
-      child: CustomScrollView(
-        physics: Config.PHYSICS,
-        semanticChildCount: count,
-        slivers: slivers,
       ),
-      onDone: () => onDone(inclusive, exclusive),
     );
   }
 }
 
-class _SortSheet extends StatelessWidget {
-  final List<String> options;
-  final int index;
-  final bool desc;
-  final Function(int, bool) onTap;
+/// A wide implementation of [DraggableScrollableSheet]
+/// with a lane of buttons at the bottom.
+class OpaqueSheetView extends StatelessWidget {
+  OpaqueSheetView({required this.builder, required this.buttons});
 
-  _SortSheet({
-    required this.options,
-    required this.index,
-    required this.desc,
-    required this.onTap,
-  });
+  final Widget Function(BuildContext, ScrollController) builder;
+  final List<Widget> buttons;
 
   @override
-  Widget build(BuildContext context) => Sheet(
-        height: options.length * Config.MATERIAL_TAP_TARGET_SIZE + 50,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(
-                top: 10,
-                bottom: 10,
-                left: 15,
-                right: 45,
+  Widget build(BuildContext context) {
+    Widget? sheet;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      maxChildSize: 0.9,
+      initialChildSize: 0.7,
+      builder: (context, scrollCtrl) {
+        if (sheet == null)
+          sheet = Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: Consts.OVERLAY_WIDE),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.background,
+                borderRadius:
+                    const BorderRadius.vertical(top: Consts.RADIUS_MAX),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Stack(
                 children: [
-                  Text('Sort', style: Theme.of(context).textTheme.subtitle1),
-                  Text('Order', style: Theme.of(context).textTheme.subtitle1),
+                  builder(context, scrollCtrl),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: ClipRect(
+                      child: BackdropFilter(
+                        filter: Consts.filter,
+                        child: Container(
+                          height:
+                              MediaQuery.of(context).viewPadding.bottom + 50,
+                          padding: EdgeInsets.only(
+                            left: 10,
+                            right: 10,
+                            bottom: MediaQuery.of(context).viewPadding.bottom,
+                          ),
+                          color: Theme.of(context).cardColor,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: Settings().leftHanded
+                                ? buttons.reversed.toList()
+                                : buttons,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            Expanded(
-              child: ListView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                itemBuilder: (_, i) => ListTile(
-                  dense: true,
-                  title: Text(
-                    options[i],
-                    style: i != index
-                        ? Theme.of(context).textTheme.bodyText2
-                        : Theme.of(context).textTheme.bodyText1,
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        height: 35,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: i != index || !desc
-                              ? Theme.of(context).primaryColor
-                              : Theme.of(context).accentColor,
-                        ),
-                        child: IconButton(
-                          padding: const EdgeInsets.all(0),
-                          icon: const Icon(
-                            Icons.arrow_downward_rounded,
-                            size: Style.ICON_SMALL,
-                          ),
-                          color: Theme.of(context).backgroundColor,
-                          onPressed: () {
-                            onTap(i, true);
-                            Navigator.pop(context);
-                          },
-                        ),
-                      ),
-                      Container(
-                        height: 35,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: i != index || desc
-                              ? Theme.of(context).primaryColor
-                              : Theme.of(context).accentColor,
-                        ),
-                        child: IconButton(
-                          padding: const EdgeInsets.all(0),
-                          icon: const Icon(
-                            Icons.arrow_upward_rounded,
-                            size: Style.ICON_SMALL,
-                          ),
-                          color: Theme.of(context).backgroundColor,
-                          onPressed: () {
-                            onTap(i, false);
-                            Navigator.pop(context);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                itemCount: options.length,
-                itemExtent: Config.MATERIAL_TAP_TARGET_SIZE,
-              ),
-            ),
-          ],
-        ),
-      );
-}
+          );
 
-class CollectionSortSheet extends StatelessWidget {
-  final String collectionTag;
-  CollectionSortSheet(this.collectionTag);
-
-  @override
-  Widget build(BuildContext context) {
-    final collection = Get.find<CollectionController>(tag: collectionTag);
-
-    final EntrySort entrySort = collection.getFilterWithKey(Filterable.SORT);
-    final currentIndex = entrySort.index ~/ 2;
-    final currentlyDesc = entrySort.index % 2 == 0 ? false : true;
-
-    final options = <String>[];
-    for (int i = 0; i < EntrySort.values.length; i += 2)
-      options.add(Convert.clarifyEnum(describeEnum(EntrySort.values[i]))!);
-
-    return _SortSheet(
-      options: options,
-      index: currentIndex,
-      desc: currentlyDesc,
-      onTap: (int index, bool desc) {
-        collection.setFilterWithKey(
-          Filterable.SORT,
-          value: desc
-              ? EntrySort.values[index * 2 + 1]
-              : EntrySort.values[index * 2],
-        );
-        collection.sort();
+        return sheet!;
       },
     );
   }
 }
 
-class MediaSortSheet extends StatelessWidget {
-  final MediaSort initial;
-  final void Function(MediaSort) onTap;
-  MediaSortSheet(this.initial, this.onTap);
+/// Buttons, typically used in [OpaqueSheetView]
+class OpaqueSheetViewButton extends StatelessWidget {
+  OpaqueSheetViewButton({
+    required this.text,
+    required this.icon,
+    required this.onTap,
+    this.warning = false,
+  });
+
+  final String text;
+  final IconData icon;
+  final void Function() onTap;
+
+  // If the icon/text should be in the error colour.
+  final bool warning;
 
   @override
   Widget build(BuildContext context) {
-    final length = MediaSort.values.length;
-    final prefTitle = Get.find<ViewerController>().settings!.titleLanguage!;
-    MediaSort titleAsc;
-    MediaSort titleDesc;
+    ButtonStyle style = Theme.of(context).textButtonTheme.style!;
+    if (warning)
+      style = style.copyWith(
+        foregroundColor: MaterialStateProperty.all(
+          Theme.of(context).colorScheme.error,
+        ),
+      );
 
-    if (describeEnum(MediaSort.values[length - 2]).contains(prefTitle)) {
-      titleAsc = MediaSort.values[length - 2];
-      titleDesc = MediaSort.values[length - 1];
-    } else if (describeEnum(MediaSort.values[length - 4]).contains(prefTitle)) {
-      titleAsc = MediaSort.values[length - 4];
-      titleDesc = MediaSort.values[length - 3];
-    } else {
-      titleAsc = MediaSort.values[length - 6];
-      titleDesc = MediaSort.values[length - 5];
-    }
+    return Expanded(
+      child: TextButton.icon(
+        label: Text(text),
+        icon: Icon(icon),
+        onPressed: onTap,
+        style: style,
+      ),
+    );
+  }
+}
 
-    int currentIndex = initial.index ~/ 2;
-    bool currentlyDesc = initial.index % 2 == 0 ? false : true;
+/// An implementation of [DraggableScrollableSheet] with
+/// gradient background that builds its children cynamically.
+class DynamicGradientDragSheet extends StatelessWidget {
+  DynamicGradientDragSheet({
+    required this.onTap,
+    required this.itemBuilder,
+    required this.itemCount,
+  });
 
-    if (currentIndex > (length - 5) ~/ 2) currentIndex = (length - 6) ~/ 2;
+  final void Function(int) onTap;
+  final Widget Function(BuildContext, int) itemBuilder;
+  final int itemCount;
 
-    final options = <String>[];
-    for (int i = 0; i < length - 6; i += 2)
-      options.add(Convert.clarifyEnum(describeEnum(MediaSort.values[i]))!);
-    options.add('Title');
+  @override
+  Widget build(BuildContext context) {
+    final requiredHeight = itemCount * Consts.MATERIAL_TAP_TARGET_SIZE + 50;
+    double height = requiredHeight / MediaQuery.of(context).size.height;
+    if (height > 0.9) height = 0.9;
 
-    return _SortSheet(
-      options: options,
-      index: currentIndex,
-      desc: currentlyDesc,
-      onTap: (index, desc) {
-        if (index != options.length - 1)
-          desc
-              ? onTap(MediaSort.values[index * 2 + 1])
-              : onTap(MediaSort.values[index * 2]);
-        else
-          desc ? onTap(titleDesc) : onTap(titleAsc);
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: height,
+      minChildSize: height < 0.25 ? height : 0.25,
+      builder: (context, scrollCtrl) => Container(
+        alignment: Alignment.bottomCenter,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            stops: const [0, 0.5, 0.8, 1],
+            colors: [
+              Theme.of(context).colorScheme.background,
+              Theme.of(context).colorScheme.background.withAlpha(200),
+              Theme.of(context).colorScheme.background.withAlpha(150),
+              Theme.of(context).colorScheme.background.withAlpha(0),
+            ],
+          ),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: Consts.OVERLAY_TIGHT),
+          child: ListView.builder(
+            controller: scrollCtrl,
+            physics: Consts.PHYSICS,
+            padding: const EdgeInsets.only(
+              top: 50,
+              left: 10,
+              right: 10,
+            ),
+            itemCount: itemCount,
+            itemExtent: Consts.MATERIAL_TAP_TARGET_SIZE,
+            itemBuilder: (context, i) => GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              child: itemBuilder(context, i),
+              onTap: () {
+                onTap(i);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// An implementation of [DraggableScrollableSheet]
+/// with gradient background and fixed children.
+class FixedGradientDragSheet extends StatelessWidget {
+  FixedGradientDragSheet({required this.children});
+
+  // A version with the given buttons, along with copy/open link buttons.
+  factory FixedGradientDragSheet.link(
+    BuildContext context,
+    String link, [
+    List<Widget> children = const [],
+  ]) =>
+      FixedGradientDragSheet(
+        children: [
+          ...children,
+          GradientDragSheetTile(
+            text: 'Copy Link',
+            icon: Ionicons.clipboard_outline,
+            onTap: () => Toast.copy(context, link),
+          ),
+          GradientDragSheetTile(
+            text: 'Open in Browser',
+            icon: Ionicons.link_outline,
+            onTap: () {
+              try {
+                launch(link);
+              } catch (err) {
+                Toast.show(context, 'Couldn\'t open link: $err');
+              }
+            },
+          ),
+        ],
+      );
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final requiredHeight =
+        children.length * Consts.MATERIAL_TAP_TARGET_SIZE + 60;
+    double height = requiredHeight / MediaQuery.of(context).size.height;
+    if (height > 0.9) height = 0.9;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: height,
+      minChildSize: height < 0.25 ? height : 0.25,
+      builder: (context, scrollCtrl) => Container(
+        alignment: Alignment.bottomCenter,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            stops: const [0, 0.5, 0.8, 1],
+            colors: [
+              Theme.of(context).colorScheme.background,
+              Theme.of(context).colorScheme.background.withAlpha(200),
+              Theme.of(context).colorScheme.background.withAlpha(150),
+              Theme.of(context).colorScheme.background.withAlpha(0),
+            ],
+          ),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: Consts.OVERLAY_TIGHT),
+          child: ListView(
+            controller: scrollCtrl,
+            physics: Consts.PHYSICS,
+            padding: const EdgeInsets.only(
+              top: 50,
+              bottom: 10,
+              left: 10,
+              right: 10,
+            ),
+            itemExtent: Consts.MATERIAL_TAP_TARGET_SIZE,
+            children: children,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sometimes used by [FixedGradientDragSheet].
+class GradientDragSheetTile extends StatelessWidget {
+  GradientDragSheetTile({
+    required this.text,
+    required this.onTap,
+    required this.icon,
+  });
+
+  final String text;
+  final IconData icon;
+  final void Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
       },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Theme.of(context).colorScheme.onBackground),
+          const SizedBox(width: 10),
+          Text(text, style: Theme.of(context).textTheme.headline1),
+        ],
+      ),
     );
   }
 }

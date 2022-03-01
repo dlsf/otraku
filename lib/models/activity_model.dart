@@ -1,17 +1,17 @@
-import 'package:otraku/enums/activity_type.dart';
-import 'package:otraku/enums/explorable.dart';
-import 'package:otraku/utils/client.dart';
+import 'package:otraku/constants/activity_type.dart';
+import 'package:otraku/constants/explorable.dart';
 import 'package:otraku/utils/convert.dart';
 import 'package:otraku/models/reply_model.dart';
 import 'package:otraku/models/page_model.dart';
+import 'package:otraku/utils/settings.dart';
 
 class ActivityModel {
   final int id;
   final ActivityType type;
   final bool deletable;
-  final int? agentId;
-  final String? agentName;
-  final String? agentImage;
+  final int agentId;
+  final String agentName;
+  final String agentImage;
   final int? recieverId;
   final String? recieverName;
   final String? recieverImage;
@@ -20,6 +20,7 @@ class ActivityModel {
   final String? mediaImage;
   final String? mediaFormat;
   final Explorable? mediaType;
+  final String? siteUrl;
   final bool isPrivate;
   final String text;
   final String createdAt;
@@ -45,6 +46,7 @@ class ActivityModel {
     this.mediaImage,
     this.mediaFormat,
     this.mediaType,
+    this.siteUrl,
     this.text = '',
     this.isPrivate = false,
     this.replyCount = 0,
@@ -54,7 +56,7 @@ class ActivityModel {
   });
 
   factory ActivityModel(Map<String, dynamic> map) {
-    final myId = Client.viewerId;
+    final myId = Settings().id;
 
     switch (map['type']) {
       case 'TEXT':
@@ -75,6 +77,7 @@ class ActivityModel {
           mediaImage: null,
           mediaFormat: null,
           mediaType: null,
+          siteUrl: map['siteUrl'],
           text: map['text'] ?? '',
           createdAt: Convert.millisToStr(map['createdAt']),
           replyCount: map['replyCount'] ?? 0,
@@ -102,9 +105,10 @@ class ActivityModel {
           recieverImage: null,
           mediaId: map['media']['id'],
           mediaTitle: map['media']['title']['userPreferred'],
-          mediaImage: map['media']['coverImage']['large'],
+          mediaImage: map['media']['coverImage']['extraLarge'],
           mediaFormat: Convert.clarifyEnum(map['media']['format']),
           mediaType: Explorable.anime,
+          siteUrl: map['siteUrl'],
           text: '$status $progress',
           createdAt: Convert.millisToStr(map['createdAt']),
           replyCount: map['replyCount'] ?? 0,
@@ -132,9 +136,10 @@ class ActivityModel {
           recieverImage: null,
           mediaId: map['media']['id'],
           mediaTitle: map['media']['title']['userPreferred'],
-          mediaImage: map['media']['coverImage']['large'],
+          mediaImage: map['media']['coverImage']['extraLarge'],
           mediaFormat: Convert.clarifyEnum(map['media']['format']),
           mediaType: Explorable.manga,
+          siteUrl: map['siteUrl'],
           text: '$status $progress',
           createdAt: Convert.millisToStr(map['createdAt']),
           replyCount: map['replyCount'] ?? 0,
@@ -162,6 +167,7 @@ class ActivityModel {
           mediaImage: null,
           mediaFormat: null,
           mediaType: null,
+          siteUrl: map['siteUrl'],
           isPrivate: map['isPrivate'] ?? false,
           text: map['message'] ?? '',
           createdAt: Convert.millisToStr(map['createdAt']),

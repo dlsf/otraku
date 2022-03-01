@@ -1,88 +1,157 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:otraku/controllers/explorer_controller.dart';
-import 'package:otraku/enums/explorable.dart';
+import 'package:otraku/controllers/explore_controller.dart';
+import 'package:otraku/constants/explorable.dart';
+import 'package:otraku/constants/consts.dart';
+import 'package:otraku/utils/convert.dart';
 import 'package:otraku/widgets/layouts/review_grid.dart';
-import 'package:otraku/widgets/layouts/title_list.dart';
+import 'package:otraku/widgets/layouts/title_grid.dart';
 import 'package:otraku/widgets/loaders.dart/loader.dart';
 import 'package:otraku/widgets/layouts/tile_grid.dart';
-import 'package:otraku/widgets/navigation/control_header.dart';
-import 'package:otraku/widgets/navigation/nav_bar.dart';
-import 'package:otraku/widgets/navigation/headline_header.dart';
+import 'package:otraku/widgets/navigation/action_button.dart';
+import 'package:otraku/widgets/navigation/sliver_filter_app_bar.dart';
+import 'package:otraku/widgets/layouts/nav_layout.dart';
 import 'package:otraku/widgets/loaders.dart/sliver_refresh_control.dart';
+import 'package:otraku/widgets/overlays/sheets.dart';
 
 class ExploreView extends StatelessWidget {
   const ExploreView();
 
   @override
   Widget build(BuildContext context) {
-    final explorer = Get.find<ExplorerController>();
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
+    return GetBuilder<ExploreController>(
+      builder: (ctrl) => CustomScrollView(
+        physics: Consts.PHYSICS,
+        controller: ctrl.scrollCtrl,
+        slivers: [
+          const SliverExploreAppBar(),
+          SliverRefreshControl(
+            onRefresh: ctrl.fetch,
+            canRefresh: () => !ctrl.isLoading,
+          ),
+          const _ExploreGrid(),
+          const _EndOfListLoader(),
+        ],
       ),
-      controller: explorer.scrollCtrl,
-      slivers: [
-        const HeadlineHeader('Explore', false),
-        ExploreControlHeader(),
-        SliverRefreshControl(
-          onRefresh: explorer.fetch,
-          canRefresh: () => !explorer.isLoading,
-        ),
-        _ExploreGrid(),
-        _EndOfListLoader(),
-        SliverToBoxAdapter(child: SizedBox(height: NavBar.offset(context))),
-      ],
     );
   }
 }
 
 class _ExploreGrid extends StatelessWidget {
+  const _ExploreGrid();
+
   @override
   Widget build(BuildContext context) {
-    final explorer = Get.find<ExplorerController>();
+    return GetBuilder<ExploreController>(
+      id: ExploreController.ID_BODY,
+      builder: (ctrl) {
+        if (ctrl.isLoading)
+          return const SliverFillRemaining(child: Center(child: Loader()));
 
-    return Obx(() {
-      if (explorer.isLoading)
-        return const SliverFillRemaining(child: Center(child: Loader()));
-
-      final results = explorer.results;
-      if (results.isEmpty) {
-        return SliverFillRemaining(
-          child: Center(
-            child: Text(
-              'No results',
-              style: Theme.of(context).textTheme.subtitle1,
+        final results = ctrl.results;
+        if (results.isEmpty) {
+          return SliverFillRemaining(
+            child: Center(
+              child: Text(
+                'No results',
+                style: Theme.of(context).textTheme.subtitle1,
+              ),
             ),
-          ),
-        );
-      }
+          );
+        }
 
-      if (results[0].browsable == Explorable.studio) return TitleList(results);
+        if (results[0].explorable == Explorable.studio)
+          return TitleGrid(results);
 
-      if (results[0].browsable == Explorable.user)
-        return TileGrid(models: results, full: false);
+        if (results[0].explorable == Explorable.user)
+          return TileGrid(models: results, full: false);
 
-      if (results[0].browsable == Explorable.review) return ReviewGrid(results);
+        if (results[0].explorable == Explorable.review)
+          return ReviewGrid(results);
 
-      return TileGrid(models: results);
-    });
+        return TileGrid(models: results);
+      },
+    );
   }
 }
 
 class _EndOfListLoader extends StatelessWidget {
+  const _EndOfListLoader();
+
   @override
   Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Center(
-          child: Obx(
-            () => Get.find<ExplorerController>().hasNextPage &&
-                    !Get.find<ExplorerController>().isLoading
-                ? Loader()
+    return GetBuilder<ExploreController>(
+      id: ExploreController.ID_BODY,
+      builder: (ctrl) => SliverToBoxAdapter(
+        child: Padding(
+          padding:
+              EdgeInsets.only(top: 20, bottom: NavLayout.offset(context) + 10),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ctrl.hasNextPage && !ctrl.isLoading
+                ? const Loader()
                 : const SizedBox(),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class ExploreActionButton extends StatelessWidget {
+  const ExploreActionButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return GetBuilder<ExploreController>(
+      id: ExploreController.ID_BUTTON,
+      builder: (ctrl) => FloatingListener(
+        scrollCtrl: ctrl.scrollCtrl,
+        child: ActionButton(
+          tooltip: 'Types',
+          icon: ctrl.type.icon,
+          onTap: () => showSheet(
+            context,
+            DynamicGradientDragSheet(
+              onTap: (i) => ctrl.type = Explorable.values[i],
+              itemCount: Explorable.values.length,
+              itemBuilder: (_, i) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Explorable.values[i].icon,
+                    color: i != ctrl.type.index
+                        ? Theme.of(context).colorScheme.onBackground
+                        : Theme.of(context).colorScheme.secondary,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    Convert.clarifyEnum(Explorable.values[i].name)!,
+                    style: i != ctrl.type.index
+                        ? Theme.of(context).textTheme.headline1
+                        : Theme.of(context).textTheme.headline1?.copyWith(
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          onSwipe: (goRight) {
+            if (goRight) {
+              if (ctrl.type.index < Explorable.values.length - 1)
+                ctrl.type = Explorable.values.elementAt(ctrl.type.index + 1);
+              else
+                ctrl.type = Explorable.values.elementAt(0);
+            } else {
+              if (ctrl.type.index > 0)
+                ctrl.type = Explorable.values.elementAt(ctrl.type.index - 1);
+              else
+                ctrl.type = Explorable.values.last;
+            }
+
+            return ctrl.type.icon;
+          },
         ),
       ),
     );

@@ -1,10 +1,10 @@
-import 'package:otraku/enums/explorable.dart';
+import 'package:otraku/constants/explorable.dart';
 import 'package:otraku/models/tag_model.dart';
 import 'package:otraku/utils/convert.dart';
 
 class MediaInfoModel {
   final int id;
-  final Explorable browsable;
+  final Explorable type;
   final int? favourites;
   bool isFavourite;
   final String? preferredTitle;
@@ -18,7 +18,7 @@ class MediaInfoModel {
   final String? format;
   final String? status;
   final int? nextEpisode;
-  final String? timeUntilAiring;
+  final int? airingAt;
   final int? episodes;
   final String? duration;
   final int? chapters;
@@ -35,11 +35,12 @@ class MediaInfoModel {
   final tags = <TagModel>[];
   final String? source;
   final String? hashtag;
+  final String? siteUrl;
   final String? countryOfOrigin;
 
   MediaInfoModel._({
     required this.id,
-    required this.browsable,
+    required this.type,
     required this.favourites,
     required this.isFavourite,
     required this.preferredTitle,
@@ -53,7 +54,7 @@ class MediaInfoModel {
     required this.format,
     required this.status,
     required this.nextEpisode,
-    required this.timeUntilAiring,
+    required this.airingAt,
     required this.episodes,
     required this.duration,
     required this.chapters,
@@ -67,6 +68,7 @@ class MediaInfoModel {
     required this.genres,
     required this.source,
     required this.hashtag,
+    required this.siteUrl,
     required this.countryOfOrigin,
   });
 
@@ -88,7 +90,7 @@ class MediaInfoModel {
 
     final model = MediaInfoModel._(
       id: map['id'],
-      browsable: map['type'] == 'ANIME' ? Explorable.anime : Explorable.manga,
+      type: map['type'] == 'ANIME' ? Explorable.anime : Explorable.manga,
       isFavourite: map['isFavourite'] ?? false,
       favourites: map['favourites'],
       preferredTitle: map['title']['userPreferred'],
@@ -96,14 +98,13 @@ class MediaInfoModel {
       englishTitle: map['title']['english'],
       nativeTitle: map['title']['native'],
       synonyms: List<String>.from(map['synonyms']),
-      cover: map['coverImage']['extraLarge'] ?? map['coverImage']['large'],
+      cover: map['coverImage']['extraLarge'] ?? map['coverImage']['extraLarge'],
       banner: map['bannerImage'],
       description: Convert.clearHtml(map['description']),
       format: Convert.clarifyEnum(map['format']),
       status: Convert.clarifyEnum(map['status']),
       nextEpisode: map['nextAiringEpisode']?['episode'],
-      timeUntilAiring:
-          Convert.timeUntilTimestamp(map['nextAiringEpisode']?['airingAt']),
+      airingAt: map['nextAiringEpisode']?['airingAt'],
       episodes: map['episodes'],
       duration: duration,
       chapters: map['chapters'],
@@ -118,6 +119,7 @@ class MediaInfoModel {
       genres: List<String>.from(map['genres']),
       source: Convert.clarifyEnum(map['source']),
       hashtag: map['hashtag'],
+      siteUrl: map['siteUrl'],
       countryOfOrigin: Convert.COUNTRY_CODES[map['countryOfOrigin']],
     );
 

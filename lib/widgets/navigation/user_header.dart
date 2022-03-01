@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
-import 'package:otraku/enums/themes.dart';
-import 'package:otraku/routing/navigation.dart';
-import 'package:otraku/utils/config.dart';
+import 'package:otraku/controllers/home_controller.dart';
+import 'package:otraku/constants/consts.dart';
 import 'package:otraku/controllers/user_controller.dart';
 import 'package:otraku/models/user_model.dart';
-import 'package:otraku/widgets/fade_image.dart';
+import 'package:otraku/utils/route_arg.dart';
 import 'package:otraku/widgets/navigation/app_bars.dart';
 import 'package:otraku/widgets/navigation/custom_sliver_header.dart';
 import 'package:otraku/widgets/overlays/dialogs.dart';
+import 'package:otraku/widgets/overlays/sheets.dart';
 
 class UserHeader extends StatelessWidget {
   final int id;
@@ -26,27 +26,15 @@ class UserHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const avatarSize = 150.0;
-    double bannerHeight = MediaQuery.of(context).size.width * 0.6;
-    if (bannerHeight > 400) bannerHeight = 400;
-    final height = bannerHeight + avatarSize * 0.5;
-    final avatar = avatarUrl ?? user?.avatar;
-
     return CustomSliverHeader(
-      height: height,
-      implyLeading: !isMe,
-      actionsScrollFadeIn: false,
       title: user?.name,
+      image: user?.avatar ?? avatarUrl,
+      banner: user?.banner,
+      squareImage: true,
+      implyLeading: !isMe,
+      heroId: id,
       actions: [
-        if (isMe)
-          Shade(
-            AppBarIcon(
-              tooltip: 'Settings',
-              icon: Ionicons.cog_outline,
-              onTap: () => Navigation.it.push(Navigation.settingsRoute),
-            ),
-          )
-        else if (user != null)
+        if (!isMe && user != null)
           Padding(
             padding: const EdgeInsets.all(10),
             child: ElevatedButton.icon(
@@ -54,7 +42,7 @@ class UserHeader extends StatelessWidget {
                 user!.isFollowing
                     ? Ionicons.person_remove_outline
                     : Ionicons.person_add_outline,
-                size: Style.ICON_SMALL,
+                size: Consts.ICON_SMALL,
               ),
               label: Text(
                 user!.isFollowing
@@ -68,118 +56,79 @@ class UserHeader extends StatelessWidget {
               onPressed:
                   Get.find<UserController>(tag: id.toString()).toggleFollow,
             ),
-          )
+          ),
+        if (user?.siteUrl != null)
+          IconShade(AppBarIcon(
+            tooltip: 'More',
+            icon: Ionicons.ellipsis_horizontal,
+            onTap: () => showSheet(
+              context,
+              FixedGradientDragSheet.link(context, user!.siteUrl!),
+            ),
+          )),
+        if (isMe)
+          GetBuilder<HomeController>(
+            id: HomeController.ID_SETTINGS,
+            builder: (ctrl) {
+              if (ctrl.siteSettings == null) return const SizedBox();
+
+              return IconShade(
+                AppBarIcon(
+                  tooltip: 'Settings',
+                  icon: Ionicons.cog_outline,
+                  onTap: () => Navigator.pushNamed(context, RouteArg.settings),
+                ),
+              );
+            },
+          ),
       ],
-      background: Stack(
-        fit: StackFit.expand,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor),
-          ),
-          if (user?.banner != null)
-            Column(
-              children: [
-                Expanded(child: FadeImage(user!.banner)),
-                SizedBox(height: height - bannerHeight),
-              ],
-            ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              height: height - bannerHeight,
-              decoration: BoxDecoration(
-                color: Theme.of(context).backgroundColor,
-                boxShadow: [
-                  BoxShadow(
-                    blurRadius: 15,
-                    spreadRadius: 25,
-                    color: Theme.of(context).backgroundColor,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            avatar != null
-                ? GestureDetector(
-                    child: Hero(
-                      tag: id,
-                      child: ClipRRect(
-                        borderRadius: Config.BORDER_RADIUS,
-                        child: Container(
-                          height: avatarSize,
-                          width: avatarSize,
-                          child: FadeImage(
-                            avatar,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.bottomCenter,
-                          ),
-                        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: user != null
+            ? [
+                Text(
+                  user!.name,
+                  overflow: TextOverflow.fade,
+                  style: Theme.of(context).textTheme.headline1!.copyWith(
+                    shadows: [
+                      Shadow(
+                        color: Theme.of(context).colorScheme.background,
+                        blurRadius: 10,
                       ),
-                    ),
-                    onTap: () => showPopUp(context, ImageDialog(avatar)),
-                  )
-                : SizedBox(width: avatarSize),
-            const SizedBox(width: 10),
-            if (user != null)
-              Expanded(
-                child: SizedBox(
-                  height: avatarSize,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Flexible(
-                        flex: 3,
-                        child: Text(
-                          user!.name!,
-                          overflow: TextOverflow.fade,
-                          style:
-                              Theme.of(context).textTheme.headline2!.copyWith(
-                            shadows: [
-                              Shadow(
-                                color: Theme.of(context).backgroundColor,
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (user!.donatorTier! > 0)
-                        Flexible(child: _AnimatedBadge(user!.donatorBadge)),
-                      if (user!.moderatorStatus != null)
-                        Flexible(
-                          child: Container(
-                            margin: const EdgeInsets.only(top: 5),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).accentColor,
-                              borderRadius: Config.BORDER_RADIUS,
-                            ),
-                            child: Text(
-                              user!.moderatorStatus!,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.button,
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),
-              ),
-          ],
-        ),
+                if (user!.donatorTier > 0) _AnimatedBadge(user!.donatorBadge),
+                if (user!.modRoles.isNotEmpty)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondary,
+                        borderRadius: Consts.BORDER_RAD_MIN,
+                      ),
+                      child: Text(
+                        user!.modRoles[0],
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.button,
+                      ),
+                    ),
+                    onTap: () => showPopUp(
+                      context,
+                      TextDialog(
+                        title: 'Roles',
+                        text: user!.modRoles.join(', '),
+                      ),
+                    ),
+                  ),
+              ]
+            : [],
       ),
     );
   }
@@ -260,14 +209,14 @@ class __AnimatedBadgeState extends State<_AnimatedBadge>
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: _animation.value,
-        borderRadius: Config.BORDER_RADIUS,
+        borderRadius: Consts.BORDER_RAD_MIN,
       ),
       child: Text(
         widget.text!,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context)
             .textTheme
-            .headline6!
+            .headline3!
             .copyWith(color: Colors.white),
       ),
     );

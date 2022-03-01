@@ -1,230 +1,106 @@
 import 'package:flutter/material.dart';
+import 'package:ionicons/ionicons.dart';
+import 'package:otraku/constants/explorable.dart';
 import 'package:otraku/controllers/media_controller.dart';
-import 'package:otraku/models/entry_model.dart';
-import 'package:otraku/utils/config.dart';
-import 'package:otraku/widgets/explore_indexer.dart';
-import 'package:otraku/widgets/fade_image.dart';
+import 'package:otraku/utils/convert.dart';
 import 'package:otraku/widgets/navigation/app_bars.dart';
 import 'package:otraku/widgets/navigation/custom_sliver_header.dart';
-import 'package:otraku/widgets/overlays/dialogs.dart';
+import 'package:otraku/widgets/overlays/sheets.dart';
 import 'package:otraku/widgets/overlays/toast.dart';
 
-class MediaHeader extends StatefulWidget {
+class MediaHeader extends StatelessWidget {
   final MediaController ctrl;
   final String? imageUrl;
-  final double coverWidth;
-  final double coverHeight;
-  final double bannerHeight;
-  final double height;
 
-  MediaHeader({
-    required this.ctrl,
-    required this.imageUrl,
-    required this.coverWidth,
-    required this.coverHeight,
-    required this.bannerHeight,
-    required this.height,
-  });
+  MediaHeader({required this.ctrl, required this.imageUrl});
 
-  @override
-  _MediaHeaderState createState() => _MediaHeaderState();
-}
-
-class _MediaHeaderState extends State<MediaHeader> {
   @override
   Widget build(BuildContext context) {
-    final info = widget.ctrl.model?.info;
+    final info = ctrl.model?.info;
+
+    final details = <TextSpan>[];
+    if (info != null) {
+      if (info.format != null)
+        details.add(TextSpan(text: Convert.clarifyEnum(info.format)));
+
+      final status = ctrl.model?.entry.status;
+      if (status != null)
+        details.add(TextSpan(
+          text: '${details.isEmpty ? "" : ' • '}'
+              '${Convert.adaptListStatus(status, info.type == Explorable.anime)}',
+        ));
+
+      if (info.airingAt != null)
+        details.add(TextSpan(
+          text: '${details.isEmpty ? "" : ' • '}'
+              'Ep ${info.nextEpisode} in '
+              '${Convert.timeUntilTimestamp(info.airingAt)}',
+        ));
+
+      if (status != null) {
+        final progress = ctrl.model?.entry.progress ?? 0;
+        if (info.nextEpisode != null && info.nextEpisode! - 1 > progress)
+          details.add(TextSpan(
+            text: '${details.isEmpty ? "" : ' • '}'
+                '${info.nextEpisode! - 1 - progress} ep behind',
+            style: Theme.of(context).textTheme.bodyText1,
+          ));
+      }
+    }
+
     return CustomSliverHeader(
-      height: widget.height,
       title: info?.preferredTitle,
-      actions: info != null
-          ? [
-              AppBarIcon(
-                tooltip: 'Edit',
-                onTap: _edit,
-                icon: widget.ctrl.model!.entry.status == null
-                    ? Icons.add
-                    : Icons.edit,
-              ),
-              AppBarIcon(
-                tooltip: 'Favourite',
-                onTap: _toggleFavourite,
-                icon: info.isFavourite ? Icons.favorite : Icons.favorite_border,
-              ),
-            ]
-          : const [],
-      background: Stack(
-        fit: StackFit.expand,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor),
-          ),
-          if (info?.banner != null)
-            Column(
-              children: [
-                Expanded(child: FadeImage(info!.banner)),
-                SizedBox(height: widget.height - widget.bannerHeight),
-              ],
+      image: info?.cover ?? imageUrl,
+      banner: info?.banner,
+      squareImage: false,
+      implyLeading: true,
+      heroId: ctrl.id,
+      maxWidth: null,
+      actions: [
+        if (info?.siteUrl != null)
+          IconShade(AppBarIcon(
+            tooltip: 'More',
+            icon: Ionicons.ellipsis_horizontal,
+            onTap: () => showSheet(
+              context,
+              FixedGradientDragSheet.link(context, info!.siteUrl!),
             ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              height: widget.height - widget.bannerHeight,
-              decoration: BoxDecoration(
-                color: Theme.of(context).backgroundColor,
-                boxShadow: [
-                  BoxShadow(
-                    blurRadius: 15,
-                    spreadRadius: 25,
-                    color: Theme.of(context).backgroundColor,
+          )),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: info != null
+            ? [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Toast.copy(context, info.preferredTitle!),
+                  child: Text(
+                    info.preferredTitle!,
+                    style: Theme.of(context).textTheme.headline1!.copyWith(
+                      shadows: [
+                        Shadow(
+                          color: Theme.of(context).colorScheme.background,
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    maxLines: 8,
+                    overflow: TextOverflow.fade,
+                  ),
+                ),
+                if (details.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  RichText(
+                    text: TextSpan(
+                      style: Theme.of(context).textTheme.subtitle1,
+                      children: details,
+                    ),
                   ),
                 ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Hero(
-              tag: widget.ctrl.id,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: Config.BORDER_RADIUS,
-                  color: Theme.of(context).primaryColor,
-                ),
-                height: widget.coverHeight,
-                width: widget.coverWidth,
-                child: ClipRRect(
-                  borderRadius: Config.BORDER_RADIUS,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (widget.imageUrl != null)
-                        Image.network(widget.imageUrl!, fit: BoxFit.cover),
-                      if (info != null)
-                        GestureDetector(
-                          child: Image.network(
-                            info.cover!,
-                            fit: BoxFit.cover,
-                          ),
-                          onTap: () =>
-                              showPopUp(context, ImageDialog(info.cover!)),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            if (info != null)
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Flexible(
-                      flex: 2,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => Toast.copy(context, info.preferredTitle!),
-                        child: Text(
-                          info.preferredTitle!,
-                          style:
-                              Theme.of(context).textTheme.headline2!.copyWith(
-                            shadows: [
-                              Shadow(
-                                color: Theme.of(context).backgroundColor,
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                          overflow: TextOverflow.fade,
-                        ),
-                      ),
-                    ),
-                    if (info.nextEpisode != null)
-                      Flexible(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 5),
-                          child: Text(
-                            'Ep ${info.nextEpisode} in ${info.timeUntilAiring}',
-                            style: Theme.of(context).textTheme.bodyText1,
-                          ),
-                        ),
-                      ),
-                    Flexible(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            ElevatedButton(
-                              clipBehavior: Clip.hardEdge,
-                              onPressed: _edit,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
-                                child: Icon(
-                                  widget.ctrl.model!.entry.status == null
-                                      ? Icons.add
-                                      : Icons.edit,
-                                ),
-                              ),
-                              style: ButtonStyle(
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            ElevatedButton(
-                              clipBehavior: Clip.hardEdge,
-                              onPressed: _toggleFavourite,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
-                                child: Icon(
-                                  info.isFavourite
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                ),
-                              ),
-                              style: ButtonStyle(
-                                backgroundColor: MaterialStateProperty.all(
-                                  Theme.of(context).errorColor,
-                                ),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
+              ]
+            : [],
       ),
     );
   }
-
-  void _edit() => ExploreIndexer.openEditPage(
-        widget.ctrl.model!.info.id,
-        widget.ctrl.model!.entry,
-        (EntryModel entry) => setState(() => widget.ctrl.model!.entry = entry),
-      );
-
-  void _toggleFavourite() => widget.ctrl.toggleFavourite().then((ok) => ok
-      ? setState(
-          () => widget.ctrl.model!.info.isFavourite =
-              !widget.ctrl.model!.info.isFavourite,
-        )
-      : null);
 }

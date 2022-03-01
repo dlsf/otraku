@@ -1,4 +1,4 @@
-import 'package:otraku/enums/explorable.dart';
+import 'package:otraku/constants/explorable.dart';
 import 'package:otraku/utils/convert.dart';
 import 'package:otraku/models/explorable_model.dart';
 
@@ -14,8 +14,8 @@ class RelatedMediaModel extends ExplorableModel {
     required int id,
     required String title,
     required String? imageUrl,
-    required Explorable browsable,
-  }) : super(id: id, text1: title, imageUrl: imageUrl, browsable: browsable);
+    required Explorable explorable,
+  }) : super(id: id, text1: title, imageUrl: imageUrl, explorable: explorable);
 
   factory RelatedMediaModel(Map<String, dynamic> map) => RelatedMediaModel._(
         id: map['node']['id'],
@@ -23,8 +23,8 @@ class RelatedMediaModel extends ExplorableModel {
         relationType: Convert.clarifyEnum(map['relationType']),
         format: Convert.clarifyEnum(map['node']['format']),
         status: Convert.clarifyEnum(map['node']['status']),
-        imageUrl: map['node']['coverImage']['large'],
-        browsable: map['node']['type'] == 'ANIME'
+        imageUrl: map['node']['coverImage']['extraLarge'],
+        explorable: map['node']['type'] == 'ANIME'
             ? Explorable.anime
             : Explorable.manga,
       );

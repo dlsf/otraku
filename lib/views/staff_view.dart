@@ -1,28 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:otraku/constants/media_sort.dart';
 import 'package:otraku/models/staff_model.dart';
-import 'package:otraku/utils/config.dart';
+import 'package:otraku/constants/consts.dart';
 import 'package:otraku/controllers/staff_controller.dart';
 import 'package:otraku/utils/convert.dart';
+import 'package:otraku/utils/settings.dart';
+import 'package:otraku/widgets/drag_detector.dart';
+import 'package:otraku/widgets/fields/drop_down_field.dart';
 import 'package:otraku/widgets/fields/input_field_structure.dart';
+import 'package:otraku/widgets/layouts/sliver_grid_delegates.dart';
+import 'package:otraku/widgets/navigation/action_button.dart';
 import 'package:otraku/widgets/navigation/bubble_tabs.dart';
 import 'package:otraku/widgets/layouts/connections_grid.dart';
 import 'package:otraku/widgets/navigation/app_bars.dart';
 import 'package:otraku/widgets/navigation/top_sliver_header.dart';
 import 'package:otraku/widgets/overlays/dialogs.dart';
 import 'package:otraku/widgets/overlays/sheets.dart';
+import 'package:otraku/widgets/overlays/toast.dart';
 
 class StaffView extends StatelessWidget {
-  final int id;
-  final String imageUrl;
-
   StaffView(this.id, this.imageUrl);
+
+  final int id;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
-    final staff = Get.find<StaffController>(tag: id.toString());
     final axis = MediaQuery.of(context).size.width > 450
         ? Axis.horizontal
         : Axis.vertical;
@@ -30,116 +35,208 @@ class StaffView extends StatelessWidget {
     if (coverWidth > 200) coverWidth = 200;
     final coverHeight = coverWidth / 0.7;
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: CustomScrollView(
-          physics: Config.PHYSICS,
-          controller: staff.scrollCtrl,
-          slivers: [
-            GetBuilder<StaffController>(
-              tag: id.toString(),
-              builder: (s) => TopSliverHeader(
-                toggleFavourite: s.toggleFavourite,
-                isFavourite: s.model?.isFavourite,
-                favourites: s.model?.favourites,
-                text:
-                    '${s.model?.firstName} ${s.model?.middleName} ${s.model?.lastName}',
-              ),
-            ),
-            GetBuilder<StaffController>(
-              tag: id.toString(),
-              builder: (s) => SliverPadding(
-                padding: Config.PADDING,
-                sliver: SliverToBoxAdapter(
-                  child: SizedBox(
-                    height:
-                        axis == Axis.horizontal ? coverHeight : coverHeight * 2,
-                    child: Flex(
-                      direction: axis,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        GestureDetector(
-                          child: Hero(
-                            tag: s.id,
-                            child: ClipRRect(
-                              borderRadius: Config.BORDER_RADIUS,
-                              child: Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                width: coverWidth,
-                                height: coverHeight,
+    final offset = (axis == Axis.vertical ? coverHeight * 2 : coverHeight) +
+        Consts.PADDING.top * 2;
+
+    return GetBuilder<StaffController>(
+      id: StaffController.ID_MAIN,
+      init: StaffController(id),
+      tag: id.toString(),
+      builder: (ctrl) => Scaffold(
+        floatingActionButton: ctrl.model != null ? _ActionButton(id) : null,
+        floatingActionButtonLocation: Settings().leftHanded
+            ? FloatingActionButtonLocation.startFloat
+            : FloatingActionButtonLocation.endFloat,
+        body: SafeArea(
+          bottom: false,
+          child: DragDetector(
+            onSwipe: (goRight) {
+              if (goRight) {
+                if (ctrl.onCharacters) ctrl.onCharacters = false;
+              } else {
+                if (!ctrl.onCharacters) ctrl.onCharacters = true;
+              }
+            },
+            child: CustomScrollView(
+              physics: Consts.PHYSICS,
+              controller: ctrl.scrollCtrl,
+              slivers: [
+                TopSliverHeader(
+                  toggleFavourite: ctrl.toggleFavourite,
+                  isFavourite: ctrl.model?.isFavourite,
+                  favourites: ctrl.model?.favourites,
+                  text: ctrl.model?.name,
+                ),
+                SliverPadding(
+                  padding: Consts.PADDING,
+                  sliver: SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: axis == Axis.horizontal
+                          ? coverHeight
+                          : coverHeight * 2,
+                      child: Flex(
+                        direction: axis,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (imageUrl != null)
+                            GestureDetector(
+                              child: Hero(
+                                tag: ctrl.id,
+                                child: ClipRRect(
+                                  borderRadius: Consts.BORDER_RAD_MIN,
+                                  child: Image.network(
+                                    imageUrl!,
+                                    fit: BoxFit.cover,
+                                    width: coverWidth,
+                                    height: coverHeight,
+                                  ),
+                                ),
                               ),
+                              onTap: () =>
+                                  showPopUp(context, ImageDialog(imageUrl!)),
                             ),
-                          ),
-                          onTap: () =>
-                              showPopUp(context, ImageDialog(imageUrl)),
-                        ),
-                        const SizedBox(height: 10, width: 10),
-                        if (s.model != null) _Details(staff.model!, axis),
-                      ],
+                          const SizedBox(height: 10, width: 10),
+                          if (ctrl.model != null) _Details(ctrl.model!, axis),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            Obx(() {
-              if (staff.characters.items.isEmpty && staff.roles.items.isEmpty)
-                return const SliverToBoxAdapter();
-
-              final offset =
-                  (axis == Axis.vertical ? coverHeight * 2 : coverHeight) +
-                      Config.PADDING.top * 2;
-
-              return SliverShadowAppBar([
-                staff.characters.items.isNotEmpty &&
-                        staff.roles.items.isNotEmpty
-                    ? BubbleTabs<bool>(
-                        options: const ['Characters', 'Staff Roles'],
-                        values: const [true, false],
-                        initial: true,
-                        onNewValue: (value) {
-                          staff.onCharacters = value;
-                          staff.scrollTo(offset);
+                SliverShadowAppBar([
+                  GetBuilder<StaffController>(
+                    id: StaffController.ID_MEDIA,
+                    tag: id.toString(),
+                    builder: (ctrl) {
+                      return BubbleTabs(
+                        items: const {'Characters': true, 'Staff Roles': false},
+                        current: () => ctrl.onCharacters,
+                        onChanged: (bool value) {
+                          ctrl.onCharacters = value;
+                          ctrl.scrollUpTo(offset);
                         },
-                        onSameValue: (_) => staff.scrollTo(offset),
-                      )
-                    : const SizedBox(),
-                const Spacer(),
-                AppBarIcon(
-                  tooltip: 'Sort',
-                  icon: Ionicons.filter_outline,
-                  onTap: () => Sheet.show(
-                    ctx: context,
-                    sheet: MediaSortSheet(
-                      staff.sort,
-                      (sort) {
-                        staff.sort = sort;
-                        staff.scrollTo(offset);
+                        onSame: () => ctrl.scrollUpTo(offset),
+                      );
+                    },
+                  ),
+                ]),
+                GetBuilder<StaffController>(
+                  id: StaffController.ID_MEDIA,
+                  tag: id.toString(),
+                  builder: (ctrl) {
+                    final connections =
+                        ctrl.onCharacters ? ctrl.characters : ctrl.roles;
+
+                    if (connections.isEmpty)
+                      return SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Text(
+                            'No resuts',
+                            style: Theme.of(context).textTheme.subtitle1,
+                          ),
+                        ),
+                      );
+
+                    return SliverPadding(
+                      padding: EdgeInsets.only(
+                        top: 10,
+                        left: 10,
+                        right: 10,
+                        bottom: MediaQuery.of(context).viewPadding.bottom + 10,
+                      ),
+                      sliver: ConnectionsGrid(connections: connections),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton(this.id);
+
+  final int id;
+
+  @override
+  Widget build(BuildContext context) {
+    return GetBuilder<StaffController>(
+      tag: id.toString(),
+      builder: (ctrl) => FloatingListener(
+        scrollCtrl: ctrl.scrollCtrl,
+        child: ActionButton(
+          icon: Ionicons.funnel_outline,
+          tooltip: 'Filter',
+          onTap: () {
+            MediaSort sort = ctrl.sort;
+            bool? onList = ctrl.onList;
+
+            final sortItems = <String, int>{};
+            for (int i = 0; i < MediaSort.values.length; i += 2) {
+              String key = Convert.clarifyEnum(MediaSort.values[i].name)!;
+              sortItems[key] = i ~/ 2;
+            }
+
+            showSheet(
+              context,
+              OpaqueSheet(
+                height: 0.3,
+                builder: (context, scrollCtrl) => GridView(
+                  controller: scrollCtrl,
+                  physics: Consts.PHYSICS,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 20,
+                  ),
+                  gridDelegate:
+                      const SliverGridDelegateWithMinWidthAndFixedHeight(
+                    minWidth: 155,
+                    height: 75,
+                  ),
+                  children: [
+                    DropDownField<int>(
+                      title: 'Sort',
+                      value: sort.index ~/ 2,
+                      items: sortItems,
+                      onChanged: (val) {
+                        int index = val * 2;
+                        if (sort.index % 2 != 0) index++;
+                        sort = MediaSort.values[index];
                       },
                     ),
-                    isScrollControlled: true,
-                  ),
+                    DropDownField<bool>(
+                      title: 'Order',
+                      value: sort.index % 2 == 0,
+                      items: const {'Ascending': true, 'Descending': false},
+                      onChanged: (val) {
+                        int index = sort.index;
+                        if (!val && index % 2 == 0) {
+                          index++;
+                        } else if (val && index % 2 != 0) {
+                          index--;
+                        }
+                        sort = MediaSort.values[index];
+                      },
+                    ),
+                    DropDownField<bool?>(
+                      title: 'List Filter',
+                      value: onList,
+                      items: const {
+                        'Everything': null,
+                        'On List': true,
+                        'Not On List': false,
+                      },
+                      onChanged: (val) => onList = val,
+                    ),
+                  ],
                 ),
-              ]);
-            }),
-            Obx(() {
-              final connections =
-                  staff.onCharacters ? staff.characters : staff.roles;
-
-              if (connections.items.isEmpty) return const SliverToBoxAdapter();
-
-              return SliverPadding(
-                padding: EdgeInsets.only(
-                  top: 10,
-                  left: 10,
-                  right: 10,
-                  bottom: MediaQuery.of(context).viewPadding.bottom + 10,
-                ),
-                sliver: ConnectionsGrid(connections: connections.items),
-              );
-            }),
-          ],
+              ),
+            ).then((_) => ctrl.filter(sort, onList));
+          },
         ),
       ),
     );
@@ -157,10 +254,13 @@ class _Details extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            '${model.firstName} ${model.middleName} ${model.lastName}',
-            style: Theme.of(context).textTheme.headline2,
-            textAlign: axis == Axis.vertical ? TextAlign.center : null,
+          GestureDetector(
+            onTap: () => Toast.copy(context, model.name),
+            child: Text(
+              model.name,
+              style: Theme.of(context).textTheme.headline1,
+              textAlign: axis == Axis.vertical ? TextAlign.center : null,
+            ),
           ),
           Text(
             model.altNames.join(', '),
@@ -174,10 +274,10 @@ class _Details extends StatelessWidget {
                 child: Expanded(
                   child: GestureDetector(
                     child: Container(
-                      padding: Config.PADDING,
+                      padding: Consts.PADDING,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor,
-                        borderRadius: Config.BORDER_RADIUS,
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: Consts.BORDER_RAD_MIN,
                       ),
                       child: Text(
                         Convert.clearHtml(model.description),

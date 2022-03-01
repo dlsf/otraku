@@ -1,32 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:otraku/models/connection_model.dart';
-import 'package:otraku/utils/config.dart';
+import 'package:otraku/constants/consts.dart';
 import 'package:otraku/widgets/explore_indexer.dart';
 import 'package:otraku/widgets/fade_image.dart';
 import 'package:otraku/widgets/layouts/sliver_grid_delegates.dart';
 
-class ConnectionsGrid extends StatefulWidget {
-  final List<ConnectionModel> connections;
-  final String? preferredSubtitle;
-
+class ConnectionsGrid extends StatelessWidget {
   ConnectionsGrid({
     required this.connections,
     this.preferredSubtitle,
   });
 
-  @override
-  _ConnectionsGridState createState() => _ConnectionsGridState();
-}
+  final List<ConnectionModel> connections;
+  final String? preferredSubtitle;
 
-class _ConnectionsGridState extends State<ConnectionsGrid> {
   @override
   Widget build(BuildContext context) => SliverGrid(
         delegate: SliverChildBuilderDelegate(
-          (_, index) => _MediaConnectionTile(
-            widget.connections[index],
-            widget.preferredSubtitle,
-          ),
-          childCount: widget.connections.length,
+          (_, i) => _MediaConnectionTile(connections[i], preferredSubtitle),
+          childCount: connections.length,
         ),
         gridDelegate: const SliverGridDelegateWithMinWidthAndFixedHeight(
           minWidth: 300,
@@ -36,19 +28,17 @@ class _ConnectionsGridState extends State<ConnectionsGrid> {
 }
 
 class _MediaConnectionTile extends StatelessWidget {
+  _MediaConnectionTile(this.item, this.preferredSubtitle);
+
   final ConnectionModel item;
   final String? preferredSubtitle;
 
-  _MediaConnectionTile(this.item, this.preferredSubtitle);
-
   @override
   Widget build(BuildContext context) {
-    int? index;
-    if (preferredSubtitle == null)
-      index = 0;
-    else
-      for (int i = 0; i < item.others.length; i++)
-        if (item.others[i].text2 == preferredSubtitle) {
+    int index = 0;
+    if (preferredSubtitle != null)
+      for (int i = 0; i < item.other.length; i++)
+        if (item.other[i].subtitle == preferredSubtitle) {
           index = i;
           break;
         }
@@ -57,15 +47,15 @@ class _MediaConnectionTile extends StatelessWidget {
       alignment: Alignment.topCenter,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: Config.BORDER_RADIUS,
-          color: Theme.of(context).primaryColor,
+          borderRadius: Consts.BORDER_RAD_MIN,
+          color: Theme.of(context).colorScheme.surface,
         ),
         child: Row(
           children: [
             Expanded(
               child: ExploreIndexer(
                 id: item.id,
-                browsable: item.browsable,
+                explorable: item.type,
                 imageUrl: item.imageUrl,
                 child: Container(
                   color: Colors.transparent,
@@ -75,27 +65,28 @@ class _MediaConnectionTile extends StatelessWidget {
                       ClipRRect(
                         child: FadeImage(item.imageUrl, width: 75),
                         borderRadius:
-                            BorderRadius.horizontal(left: Config.RADIUS),
+                            BorderRadius.horizontal(left: Consts.RADIUS_MIN),
                       ),
                       Expanded(
                         child: Padding(
-                          padding: Config.PADDING,
+                          padding: Consts.PADDING,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: Text(
-                                  item.text1,
+                                  item.title,
                                   overflow: TextOverflow.fade,
                                 ),
                               ),
-                              Text(
-                                item.text2!,
-                                maxLines: 2,
-                                overflow: TextOverflow.fade,
-                                style: Theme.of(context).textTheme.subtitle2,
-                              ),
+                              if (item.subtitle != null)
+                                Text(
+                                  item.subtitle!,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.fade,
+                                  style: Theme.of(context).textTheme.subtitle2,
+                                ),
                             ],
                           ),
                         ),
@@ -105,12 +96,12 @@ class _MediaConnectionTile extends StatelessWidget {
                 ),
               ),
             ),
-            if (index != null && item.others.length > index)
+            if (item.other.length > index)
               Expanded(
                 child: ExploreIndexer(
-                  id: item.others[index].id,
-                  browsable: item.others[index].browsable,
-                  imageUrl: item.others[index].imageUrl,
+                  id: item.other[index].id,
+                  explorable: item.other[index].type,
+                  imageUrl: item.other[index].imageUrl,
                   child: Container(
                     color: Colors.transparent,
                     child: Row(
@@ -118,33 +109,35 @@ class _MediaConnectionTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Padding(
-                            padding: Config.PADDING,
+                            padding: Consts.PADDING,
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Flexible(
                                   child: Text(
-                                    item.others[index].text1,
+                                    item.other[index].title,
                                     overflow: TextOverflow.fade,
                                     textAlign: TextAlign.end,
                                   ),
                                 ),
-                                Text(
-                                  item.others[index].text2!,
-                                  style: Theme.of(context).textTheme.subtitle2,
-                                ),
+                                if (item.other[index].subtitle != null)
+                                  Text(
+                                    item.other[index].subtitle!,
+                                    style:
+                                        Theme.of(context).textTheme.subtitle2,
+                                  ),
                               ],
                             ),
                           ),
                         ),
                         ClipRRect(
                           child: FadeImage(
-                            item.others[index].imageUrl,
+                            item.other[index].imageUrl,
                             width: 75,
                           ),
                           borderRadius:
-                              BorderRadius.horizontal(right: Config.RADIUS),
+                              BorderRadius.horizontal(right: Consts.RADIUS_MIN),
                         ),
                       ],
                     ),

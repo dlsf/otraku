@@ -1,154 +1,138 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:otraku/constants/entry_sort.dart';
+import 'package:otraku/constants/explorable.dart';
+import 'package:otraku/constants/media_sort.dart';
+import 'package:otraku/constants/consts.dart';
+import 'package:otraku/controllers/home_controller.dart';
 import 'package:otraku/utils/convert.dart';
-import 'package:otraku/enums/themes.dart';
-import 'package:otraku/utils/config.dart';
+import 'package:otraku/utils/settings.dart';
 import 'package:otraku/utils/theming.dart';
 import 'package:otraku/views/home_view.dart';
+import 'package:otraku/widgets/fields/checkbox_field.dart';
 import 'package:otraku/widgets/fields/drop_down_field.dart';
-import 'package:otraku/widgets/fields/switch_tile.dart';
-import 'package:otraku/widgets/navigation/nav_bar.dart';
+import 'package:otraku/widgets/layouts/sliver_grid_delegates.dart';
+import 'package:otraku/widgets/layouts/nav_layout.dart';
 
 class SettingsAppView extends StatelessWidget {
   const SettingsAppView();
 
   @override
-  Widget build(BuildContext context) => ListView(
-        physics: Config.PHYSICS,
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-        children: [
-          Row(
-            children: [
-              Flexible(
-                child: DropDownField<int>(
-                  title: 'Theme Mode',
-                  value: Theming.it.mode.index,
-                  items: {'Auto': 0, 'Light': 1, 'Dark': 2},
-                  onChanged: (val) {
-                    Config.storage.write(Theming.THEME_MODE, val);
-                    Theming.it.setMode(val);
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: DropDownField<int>(
-                  title: 'Startup Page',
-                  value: Config.storage.read(Config.STARTUP_PAGE) ??
-                      HomeView.ANIME_LIST,
-                  items: {
-                    'Feed': HomeView.FEED,
-                    'Anime List': HomeView.ANIME_LIST,
-                    'Manga List': HomeView.MANGA_LIST,
-                    'Explore': HomeView.EXPLORE,
-                    'Profile': HomeView.PROFILE,
-                  },
-                  onChanged: (val) =>
-                      Config.storage.write(Config.STARTUP_PAGE, val),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SwitchTile(
-            title: '12 Hour Clock',
-            initialValue: Config.storage.read(Config.CLOCK_TYPE) ?? false,
-            onChanged: (val) => Config.storage.write(Config.CLOCK_TYPE, val),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Light Theme',
-                style: Theme.of(context).textTheme.subtitle1,
-              ),
-              Text(
-                'Dark Theme',
-                style: Theme.of(context).textTheme.subtitle1,
-              ),
-            ],
-          ),
-          _Radio(
-            options: Themes.values
-                .map((t) => Convert.clarifyEnum(describeEnum(t)))
-                .toList(),
-            leftValue: Theming.it.light.index,
-            rightValue: Theming.it.dark.index,
-            onChangedLeft: (val) {
-              Config.storage.write(Theming.LIGHT_THEME, val);
-              Theming.it.setLight(val);
-            },
-            onChangedRight: (val) {
-              Config.storage.write(Theming.DARK_THEME, val);
-              Theming.it.setDark(val);
-            },
-          ),
-          SizedBox(height: NavBar.offset(context)),
-        ],
-      );
-}
-
-class _Radio extends StatefulWidget {
-  final List<String?> options;
-  final int leftValue;
-  final int rightValue;
-  final Function(int) onChangedLeft;
-  final Function(int) onChangedRight;
-
-  _Radio({
-    required this.options,
-    required this.leftValue,
-    required this.rightValue,
-    required this.onChangedLeft,
-    required this.onChangedRight,
-  });
-
-  @override
-  __RadioState createState() => __RadioState();
-}
-
-class __RadioState extends State<_Radio> {
-  late int _leftValue;
-  late int _rightValue;
-
-  @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(0),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemBuilder: (_, index) => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Radio<int>(
-            value: index,
-            groupValue: _leftValue,
-            onChanged: (_) {
-              widget.onChangedLeft(index);
-              setState(() => _leftValue = index);
-            },
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: CustomScrollView(
+        controller: Get.find<HomeController>().scrollCtrl,
+        physics: Consts.PHYSICS,
+        slivers: [
+          const SliverToBoxAdapter(child: SizedBox(height: 10)),
+          SliverGrid(
+            gridDelegate: const SliverGridDelegateWithMinWidthAndFixedHeight(
+              minWidth: 160,
+              height: 75,
+            ),
+            delegate: SliverChildListDelegate.fixed([
+              DropDownField<int>(
+                title: 'Light Theme',
+                value: Settings().lightTheme,
+                items: Theming.themes,
+                onChanged: (val) => Settings().lightTheme = val,
+              ),
+              DropDownField<int>(
+                title: 'Dark Theme',
+                value: Settings().darkTheme,
+                items: Theming.themes,
+                onChanged: (val) => Settings().darkTheme = val,
+              ),
+              DropDownField<ThemeMode>(
+                title: 'Theme Mode',
+                value: Settings().themeMode,
+                items: const {
+                  'Auto': ThemeMode.system,
+                  'Light': ThemeMode.light,
+                  'Dark': ThemeMode.dark,
+                },
+                onChanged: (val) => Settings().themeMode = val,
+              ),
+              DropDownField<int>(
+                title: 'Startup Page',
+                value: Settings().defaultHomeTab,
+                items: {
+                  'Feed': HomeView.FEED,
+                  'Anime List': HomeView.ANIME_LIST,
+                  'Manga List': HomeView.MANGA_LIST,
+                  'Explore': HomeView.EXPLORE,
+                  'Profile': HomeView.USER,
+                },
+                onChanged: (val) => Settings().defaultHomeTab = val,
+              ),
+              DropDownField<EntrySort>(
+                title: 'Default Anime Sort',
+                value: Settings().defaultAnimeSort,
+                items: Map.fromIterable(
+                  EntrySort.values,
+                  key: (v) => Convert.clarifyEnum((v as EntrySort).name)!,
+                ),
+                onChanged: (val) => Settings().defaultAnimeSort = val,
+              ),
+              DropDownField<EntrySort>(
+                title: 'Default Manga Sort',
+                value: Settings().defaultMangaSort,
+                items: Map.fromIterable(
+                  EntrySort.values,
+                  key: (v) => Convert.clarifyEnum((v as EntrySort).name)!,
+                ),
+                onChanged: (val) => Settings().defaultMangaSort = val,
+              ),
+              DropDownField<MediaSort>(
+                title: 'Default Explore Sort',
+                value: Settings().defaultExploreSort,
+                items: Map.fromIterable(
+                  MediaSort.values,
+                  key: (v) => Convert.clarifyEnum((v as MediaSort).name)!,
+                ),
+                onChanged: (val) => Settings().defaultExploreSort = val,
+              ),
+              DropDownField<Explorable>(
+                title: 'Default Explorable',
+                value: Settings().defaultExplorable,
+                items: Map.fromIterable(
+                  Explorable.values,
+                  key: (v) => Convert.clarifyEnum((v as Explorable).name)!,
+                ),
+                onChanged: (val) => Settings().defaultExplorable = val,
+              ),
+            ]),
           ),
-          Text(widget.options[index]!),
-          Radio<int>(
-            value: index,
-            groupValue: _rightValue,
-            onChanged: (_) {
-              widget.onChangedRight(index);
-              setState(() => _rightValue = index);
-            },
+          SliverGrid(
+            gridDelegate: const SliverGridDelegateWithMinWidthAndFixedHeight(
+              minWidth: 200,
+              mainAxisSpacing: 0,
+              crossAxisSpacing: 20,
+              height: Consts.MATERIAL_TAP_TARGET_SIZE,
+            ),
+            delegate: SliverChildListDelegate.fixed([
+              CheckBoxField(
+                title: 'Left-Handed Mode',
+                initial: Settings().leftHanded,
+                onChanged: (val) => Settings().leftHanded = val,
+              ),
+              CheckBoxField(
+                title: '12 Hour Clock',
+                initial: Settings().analogueClock,
+                onChanged: (val) => Settings().analogueClock = val,
+              ),
+              CheckBoxField(
+                title: 'Confirm Exit',
+                initial: Settings().confirmExit,
+                onChanged: (val) => Settings().confirmExit = val,
+              ),
+            ]),
           ),
+          SliverToBoxAdapter(
+              child: SizedBox(height: NavLayout.offset(context))),
         ],
       ),
-      itemCount: widget.options.length,
-      itemExtent: Config.MATERIAL_TAP_TARGET_SIZE,
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _leftValue = widget.leftValue;
-    _rightValue = widget.rightValue;
   }
 }

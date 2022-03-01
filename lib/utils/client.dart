@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart';
-import 'package:otraku/routing/navigation.dart';
-import 'package:otraku/utils/config.dart';
+import 'package:otraku/utils/background_handler.dart';
+import 'package:otraku/utils/settings.dart';
+import 'package:otraku/utils/route_arg.dart';
 import 'package:otraku/widgets/overlays/dialogs.dart';
 
 abstract class Client {
@@ -13,102 +14,120 @@ abstract class Client {
 
   static const _idQuery = 'query Id {Viewer {id}}';
 
-  static const _TOKEN_KEY = 'accessToken1';
-  static const _ID_KEY = 'viewerId1';
-  static const _EXPIRATION_KEY = 'expirationMillis1';
+  static const _HEADERS_AUTH_KEY = 'Authorization';
+  static const _TOKEN_0 = 'token0';
+  static const _TOKEN_1 = 'token1';
 
   static final Map<String, String> _headers = {
-    'Authorization': 'Bearer $_accessToken',
     'Accept': 'application/json',
     'Content-type': 'application/json',
   };
 
   static String? _accessToken;
-  static int? _viewerId;
-  static int? get viewerId => _viewerId;
 
-  // Sets new credentials, when acquiring a token.
-  static setCredentials(String token, int expiration) {
-    _accessToken = token;
-    FlutterSecureStorage().write(key: _TOKEN_KEY, value: _accessToken);
-    Config.storage.write(
-      _EXPIRATION_KEY,
-      DateTime.now()
-          .add(Duration(seconds: expiration, days: -1))
-          .millisecondsSinceEpoch,
-    );
+  static set _token(String? v) {
+    _accessToken = v;
+    v != null
+        ? _headers[_HEADERS_AUTH_KEY] = 'Bearer $_accessToken'
+        : _headers.remove(_HEADERS_AUTH_KEY);
   }
 
-  // Verifies credentials.
-  static Future<bool> logIn() async {
+  // Save credentials to an account.
+  static Future<void> register(
+    int account,
+    String token,
+    int expiration,
+  ) async {
+    if (account < 0 || account > 1) return;
+
+    await FlutterSecureStorage().write(
+      key: account == 0 ? _TOKEN_0 : _TOKEN_1,
+      value: token,
+    );
+
+    expiration = DateTime.now()
+        .add(Duration(seconds: expiration, days: -1))
+        .millisecondsSinceEpoch;
+
+    Settings().setExpirationOf(account, expiration);
+  }
+
+  // Try loading a saved account.
+  static Future<bool> logIn(int account) async {
+    if (account < 0 || account > 1) return false;
+
     if (_accessToken == null) {
       // Check the token's expiration date.
-      final int? millis = Config.storage.read(_EXPIRATION_KEY);
-      if (millis != null) {
-        final date = DateTime.fromMillisecondsSinceEpoch(millis);
+      if (Settings().expirationOf(account) != null) {
+        final date = DateTime.fromMillisecondsSinceEpoch(
+          Settings().expirationOf(account)!,
+        );
         if (DateTime.now().compareTo(date) >= 0) {
-          FlutterSecureStorage().deleteAll();
-          Config.storage.remove(_ID_KEY);
-          Config.storage.remove(_EXPIRATION_KEY);
+          removeAccount(account);
           return false;
         }
       }
 
-      // Try to acquire the token from the secure storage.
-      _accessToken = await FlutterSecureStorage().read(key: _TOKEN_KEY);
+      // Try to acquire the token from the storage.
+      _token = await FlutterSecureStorage()
+          .read(key: account == 0 ? _TOKEN_0 : _TOKEN_1);
+
       if (_accessToken == null) return false;
     }
 
-    // Try to acquire the viewer's id from the storage.
-    if (_viewerId == null) _viewerId = Config.storage.read(_ID_KEY);
-
     // Fetch the viewer's id, if needed.
-    if (_viewerId == null) {
-      final data = await request(_idQuery, null, popOnErr: false);
-      if (data == null) return false;
-      _viewerId = data['Viewer']['id'];
-      Config.storage.write(_ID_KEY, _viewerId);
+    if (Settings().idOf(account) == null) {
+      final data = await request(_idQuery);
+      Settings().setIdOf(account, data?['Viewer']?['id']);
+      if (Settings().idOf(account) == null) {
+        _token = null;
+        return false;
+      }
     }
 
     return true;
   }
 
-  // Clears all data and logs out.
+  // Log out and show available accounts.
   static Future<void> logOut() async {
-    FlutterSecureStorage().deleteAll();
-    Config.storage.erase();
-    _accessToken = null;
-    _viewerId = null;
-    Navigation.it.setBasePage(Navigation.authRoute);
+    _token = null;
+    Settings().selectedAccount = null;
+    BackgroundHandler.clearNotifications();
+    final context = RouteArg.navKey.currentContext;
+    if (context == null) return;
+    Navigator.pushNamedAndRemoveUntil(context, RouteArg.auth, (_) => false);
   }
 
-  // The app needs both the accessToken and the viewer id.
-  static bool loggedIn() => _accessToken != null && _viewerId != null;
+  // Remove a saved account.
+  static Future<void> removeAccount(int account) async {
+    Settings().setIdOf(account, null);
+    Settings().setExpirationOf(account, null);
+    await FlutterSecureStorage()
+        .delete(key: account == 0 ? _TOKEN_0 : _TOKEN_1);
+  }
 
-  // Sends a request to the site.
-  // popOnErr - after confirmation, not only the dialog, but the page too should
-  // be popped.
-  // silentErr - No need of a dialog on error.
+  static bool loggedIn() => _accessToken != null;
+
+  // Send a request to the site.
   static Future<Map<String, dynamic>?> request(
-    String request,
-    Map<String, dynamic>? variables, {
-    bool popOnErr = true,
-    bool silentErr = false,
-  }) async {
-    bool erred = false;
+    String query, [
+    Map<String, dynamic>? variables,
+  ]) async {
+    IOException? err;
 
     final response = await post(
       _url,
-      body: json.encode({'query': request, 'variables': variables}),
+      body: json.encode({'query': query, 'variables': variables}),
       headers: _headers,
-    ).catchError((err) {
-      if (!silentErr) _handleErr(popOnErr, ioErr: err as IOException);
-      erred = true;
-    });
+    ).catchError((e) => err = e);
 
-    if (erred || response.body.isEmpty) {
-      if (!silentErr)
-        _handleErr(popOnErr, apiErr: ['Empty AniList response...']);
+    if (err != null) {
+      _handleErr(ioErr: err);
+      return null;
+    }
+
+    if (response.body.isEmpty) {
+      _handleErr(apiErr: ['Empty AniList response...']);
       return null;
     }
 
@@ -119,8 +138,7 @@ abstract class Client {
           .map((e) => e['message'].toString())
           .toList();
 
-      if (!silentErr) _handleErr(popOnErr, apiErr: messages);
-
+      _handleErr(apiErr: messages);
       return null;
     }
 
@@ -128,44 +146,43 @@ abstract class Client {
   }
 
   // Handle errors that have occured after fetching.
-  static void _handleErr(
-    bool popOnErr, {
+  static void _handleErr({
     IOException? ioErr,
     List<String>? apiErr,
   }) {
-    final context = Navigation.it.ctx;
+    assert(ioErr != null || apiErr != null);
+
+    final context = RouteArg.navKey.currentContext;
     if (context == null) return;
 
-    if (popOnErr) Navigator.pop(context);
-
-    if (ioErr != null && ioErr is SocketException) {
+    if (ioErr != null) {
       showPopUp(
         context,
         ConfirmationDialog(
           content: ioErr.toString(),
-          title: 'Internet connection problem',
+          title: ioErr is SocketException
+              ? 'Internet connection problem'
+              : 'Device request failed',
           mainAction: 'Ok',
         ),
       );
+
       return;
     }
 
     if (apiErr != null &&
         (apiErr.contains('Unauthorized.') ||
             apiErr.contains('Invalid token'))) {
-      Navigation.it.setBasePage(Navigation.authRoute);
+      Navigator.pushNamedAndRemoveUntil(context, RouteArg.auth, (_) => false);
       return;
     }
-
-    final text = ioErr?.toString() ?? apiErr!.join('\n');
 
     showPopUp(
       context,
       ConfirmationDialog(
-        content: text,
-        title:
-            ioErr == null ? 'A query error occured' : 'A request error occured',
-        mainAction: 'Sad',
+        content: apiErr?.join('\n'),
+        title: 'Faulty query',
+        mainAction: 'Ok',
       ),
     );
   }

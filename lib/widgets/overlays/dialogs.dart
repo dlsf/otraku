@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:otraku/utils/config.dart';
+import 'package:otraku/constants/consts.dart';
 import 'package:otraku/widgets/html_content.dart';
 
-Future<dynamic> showPopUp(BuildContext ctx, Widget child) =>
-    showDialog(context: ctx, builder: (ctx) => PopUpAnimation(child));
+Future<T?> showPopUp<T>(BuildContext ctx, Widget child) => showDialog<T>(
+      context: ctx,
+      builder: (ctx) => PopUpAnimation(child),
+      barrierColor: Theme.of(ctx).colorScheme.surface.withAlpha(150),
+    );
 
 class PopUpAnimation extends StatefulWidget {
   final Widget child;
@@ -43,6 +46,58 @@ class _PopUpAnimationState extends State<PopUpAnimation>
       );
 }
 
+class InputDialog extends StatelessWidget {
+  final String initial;
+  final void Function(String) onChanged;
+
+  InputDialog({required this.initial, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    String text = initial;
+
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: TextFormField(
+          maxLines: 5,
+          autofocus: true,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headline1,
+          decoration: const InputDecoration(
+            filled: false,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+          ),
+          keyboardType: TextInputType.name,
+          initialValue: initial,
+          onChanged: (t) => text = t,
+          onEditingComplete: () {
+            onChanged(text.trim());
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// A basic container for a dialog.
+class DialogBox extends StatelessWidget {
+  final Widget child;
+  const DialogBox(this.child);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 50),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 600),
+        child: child,
+      ),
+    );
+  }
+}
+
 class ConfirmationDialog extends StatelessWidget {
   final String title;
   final String? content;
@@ -61,24 +116,23 @@ class ConfirmationDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: Theme.of(context).primaryColor,
-      shape: const RoundedRectangleBorder(borderRadius: Config.BORDER_RADIUS),
-      title: Text(title, style: Theme.of(context).textTheme.headline5),
+      title: Text(title),
       content: content != null ? Text(content!) : null,
       actions: [
         if (secondaryAction != null)
           TextButton(
             child: Text(
               secondaryAction!,
-              style: TextStyle(color: Theme.of(context).dividerColor),
+              style:
+                  TextStyle(color: Theme.of(context).colorScheme.onBackground),
             ),
-            onPressed: Navigator.of(context).pop,
+            onPressed: () => Navigator.pop(context),
           ),
         TextButton(
           child: Text(mainAction),
           onPressed: () {
             onConfirm?.call();
-            Navigator.of(context).pop();
+            Navigator.pop(context);
           },
         ),
       ],
@@ -95,12 +149,11 @@ class ImageDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 50),
-      shape: const RoundedRectangleBorder(borderRadius: Config.BORDER_RADIUS),
+      shape: const RoundedRectangleBorder(borderRadius: Consts.BORDER_RAD_MIN),
       backgroundColor: Colors.transparent,
       child: ClipRRect(
-        borderRadius: Config.BORDER_RADIUS,
+        borderRadius: Consts.BORDER_RAD_MIN,
         child: Image.network(url, fit: fit),
       ),
     );
@@ -114,7 +167,7 @@ class TextDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      _Dialog(title: title, expand: false, child: Text(text));
+      _DialogColumn(title: title, expand: false, child: Text(text));
 }
 
 class HtmlDialog extends StatelessWidget {
@@ -124,15 +177,15 @@ class HtmlDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      _Dialog(title: title, expand: true, child: HtmlContent(html));
+      _DialogColumn(title: title, expand: true, child: HtmlContent(html));
 }
 
-class _Dialog extends StatelessWidget {
+class _DialogColumn extends StatelessWidget {
   final String title;
   final Widget child;
   final bool expand;
 
-  const _Dialog({
+  const _DialogColumn({
     required this.title,
     required this.child,
     required this.expand,
@@ -140,45 +193,38 @@ class _Dialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 50),
-      backgroundColor: Theme.of(context).backgroundColor,
-      shape: const RoundedRectangleBorder(borderRadius: Config.BORDER_RADIUS),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
+    return DialogBox(
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(top: Consts.RADIUS_MIN),
+              color: Theme.of(context).colorScheme.background,
+            ),
+            padding: Consts.PADDING,
+            child: Text(title, style: Theme.of(context).textTheme.subtitle1),
+          ),
+          Flexible(
+            fit: expand ? FlexFit.tight : FlexFit.loose,
+            child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Config.RADIUS),
-                color: Theme.of(context).backgroundColor,
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Consts.RADIUS_MIN),
+                color: Theme.of(context).colorScheme.surface,
               ),
-              padding: Config.PADDING,
-              child: Text(title, style: Theme.of(context).textTheme.subtitle1),
-            ),
-            Flexible(
-              fit: expand ? FlexFit.tight : FlexFit.loose,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius:
-                      const BorderRadius.vertical(bottom: Config.RADIUS),
-                  color: Theme.of(context).primaryColor,
-                ),
-                child: Scrollbar(
-                  child: SingleChildScrollView(
-                    physics: Config.PHYSICS,
-                    padding: Config.PADDING,
-                    child: child,
-                  ),
+              child: Scrollbar(
+                child: SingleChildScrollView(
+                  physics: Consts.PHYSICS,
+                  padding: Consts.PADDING,
+                  child: child,
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

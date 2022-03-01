@@ -1,184 +1,117 @@
-import 'package:flutter/foundation.dart';
-import 'package:get/get.dart';
 import 'package:otraku/models/staff_model.dart';
 import 'package:otraku/utils/client.dart';
-import 'package:otraku/enums/explorable.dart';
+import 'package:otraku/constants/explorable.dart';
 import 'package:otraku/utils/convert.dart';
-import 'package:otraku/enums/media_sort.dart';
+import 'package:otraku/constants/media_sort.dart';
 import 'package:otraku/models/page_model.dart';
 import 'package:otraku/models/connection_model.dart';
-import 'package:otraku/utils/overscroll_controller.dart';
+import 'package:otraku/utils/graphql.dart';
+import 'package:otraku/utils/scrolling_controller.dart';
 
-class StaffController extends OverscrollController {
-  // ***************************************************************************
-  // CONSTANTS
-  // ***************************************************************************
+class StaffController extends ScrollingController {
+  // GetBuilder ids.
+  static const ID_MAIN = 0;
+  static const ID_MEDIA = 1;
 
-  static const _staffQuery = r'''
-    query Staff($id: Int, $sort: [MediaSort], $characterPage: Int = 1, $staffPage: Int = 1, 
-        $onList: Boolean, $withPerson: Boolean = false, $withCharacters: Boolean = false, $withStaff: Boolean = false) {
-      Staff(id: $id) {
-        ...person @include(if: $withPerson)
-        characterMedia(page: $characterPage, sort: $sort, onList: $onList) @include(if: $withCharacters) {
-          pageInfo {hasNextPage}
-          edges {
-            characterRole
-            node {
-              id
-              type
-              title {userPreferred}
-              coverImage {large}
-            }
-            characters {
-              id
-              name {full}
-              image {large}
-            }
-          }
-        }
-        staffMedia(page: $staffPage, sort: $sort, onList: $onList) @include(if: $withStaff) {
-          pageInfo {hasNextPage}
-          edges {
-            staffRole
-            node {
-              id
-              type
-              title {userPreferred}
-              coverImage {large}
-            }
-          }
-        }
-      }
-    }
-    fragment person on Staff {
-      id
-      name{first middle last native alternative}
-      image{large}
-      description(asHtml: true)
-      languageV2
-      primaryOccupations
-      dateOfBirth{year month day}
-      dateOfDeath{year month day}
-      gender
-      age
-      yearsActive
-      homeTown
-      favourites 
-      isFavourite
-      isFavouriteBlocked
-    }
-  ''';
-
-  static const _toggleFavouriteMutation = r'''
-    mutation ToggleFavouriteStaff($id: Int) {
-      ToggleFavourite(staffId: $id) {
-        staff(page: 1, perPage: 1) {nodes{isFavourite}}
-      }
-    }
-  ''';
-
-  // ***************************************************************************
-  // DATA
-  // ***************************************************************************
-
-  final int id;
   StaffController(this.id);
 
+  final int id;
   StaffModel? _model;
-  final _characters = PageModel<ConnectionModel>().obs;
-  final _roles = PageModel<ConnectionModel>().obs;
-  final _onCharacters = true.obs;
+  final _characters = PageModel<ConnectionModel>();
+  final _roles = PageModel<ConnectionModel>();
+  bool _onCharacters = true;
   MediaSort _sort = MediaSort.POPULARITY_DESC;
+  bool? _onList;
 
   StaffModel? get model => _model;
-  PageModel<ConnectionModel> get characters => _characters();
-  PageModel<ConnectionModel> get roles => _roles();
-  bool get onCharacters => _onCharacters();
-  set onCharacters(bool value) => _onCharacters.value = value;
+  List<ConnectionModel> get characters => _characters.items;
+  List<ConnectionModel> get roles => _roles.items;
+
+  bool get onCharacters => _onCharacters;
+  set onCharacters(bool val) {
+    _onCharacters = val;
+    update([ID_MEDIA]);
+  }
+
   MediaSort get sort => _sort;
-  set sort(MediaSort value) {
-    _sort = value;
+  bool? get onList => _onList;
+
+  void filter(MediaSort sortVal, bool? onListVal) {
+    if (sortVal == _sort && onListVal == _onList) return;
+    _sort = sortVal;
+    _onList = onListVal;
     refetch();
   }
 
-  @override
-  bool get hasNextPage =>
-      _onCharacters() ? _characters().hasNextPage : _roles().hasNextPage;
-
-  // ***************************************************************************
-  // FETCHING
-  // ***************************************************************************
-
-  Future<void> fetch() async {
-    if (_model != null) return;
-
-    final body = await Client.request(_staffQuery, {
+  Future<void> _fetch() async {
+    final data = await Client.request(GqlQuery.staff, {
       'id': id,
-      'withPerson': true,
+      'withMain': true,
       'withCharacters': true,
       'withStaff': true,
-      'sort': describeEnum(_sort),
+      'onList': _onList,
+      'sort': _sort.name,
     });
-    if (body == null) return;
+    if (data == null) return;
 
-    final data = body['Staff'];
+    _model = StaffModel(data['Staff']);
+    _initCharacters(data['Staff'], false);
+    _initRoles(data['Staff'], false);
 
-    _model = StaffModel(data);
-    update();
-
-    _initCharacters(data, false);
-    _initRoles(data, false);
-
-    if (_characters().items.isEmpty) _onCharacters.value = false;
+    update([ID_MAIN, ID_MEDIA]);
   }
 
   Future<void> refetch() async {
-    final data = await Client.request(_staffQuery, {
+    scrollUpTo(0);
+
+    final data = await Client.request(GqlQuery.staff, {
       'id': id,
       'withCharacters': true,
       'withStaff': true,
-      'sort': describeEnum(_sort),
+      'onList': _onList,
+      'sort': _sort.name,
     });
     if (data == null) return;
 
     _initCharacters(data['Staff'], true);
     _initRoles(data['Staff'], true);
+
+    update([ID_MEDIA]);
   }
 
   @override
   Future<void> fetchPage() async {
-    final data = await Client.request(_staffQuery, {
+    if (_onCharacters && !_characters.hasNextPage) return;
+    if (!_onCharacters && !_roles.hasNextPage) return;
+
+    final data = await Client.request(GqlQuery.staff, {
       'id': id,
-      'withCharacters': _onCharacters(),
-      'withStaff': !_onCharacters(),
-      'characterPage': _characters().nextPage,
-      'staffPage': _roles().nextPage,
-      'sort': describeEnum(_sort),
+      'withCharacters': _onCharacters,
+      'withStaff': !_onCharacters,
+      'characterPage': _characters.nextPage,
+      'staffPage': _roles.nextPage,
+      'sort': _sort.name,
+      'onList': _onList,
     });
     if (data == null) return;
 
-    if (_onCharacters())
+    if (_onCharacters)
       _initCharacters(data['Staff'], false);
     else
       _initRoles(data['Staff'], false);
+
+    update([ID_MEDIA]);
   }
 
   Future<bool> toggleFavourite() async {
-    final data = await Client.request(
-      _toggleFavouriteMutation,
-      {'id': id},
-      popOnErr: false,
-    );
+    final data =
+        await Client.request(GqlMutation.toggleFavourite, {'staff': id});
     if (data != null) _model!.isFavourite = !_model!.isFavourite;
     return _model!.isFavourite;
   }
 
-  // ***************************************************************************
-  // HELPER FUNCTIONS
-  // ***************************************************************************
-
   void _initCharacters(Map<String, dynamic> data, bool clear) {
-    if (clear) _characters().clear();
+    if (clear) _characters.clear();
 
     final connections = <ConnectionModel>[];
     for (final connection in data['characterMedia']['edges'])
@@ -186,51 +119,52 @@ class StaffController extends OverscrollController {
         if (char != null)
           connections.add(ConnectionModel(
               id: char['id'],
-              title: char['name']['full'],
+              title: char['name']['userPreferred'],
               imageUrl: char['image']['large'],
-              browsable: Explorable.character,
-              text2: Convert.clarifyEnum(connection['characterRole']),
-              others: [
+              type: Explorable.character,
+              subtitle: Convert.clarifyEnum(connection['characterRole']),
+              other: [
                 ConnectionModel(
                   id: connection['node']['id'],
                   title: connection['node']['title']['userPreferred'],
-                  imageUrl: connection['node']['coverImage']['large'],
-                  browsable: connection['node']['type'] == 'ANIME'
+                  imageUrl: connection['node']['coverImage']['extraLarge'],
+                  subtitle: Convert.clarifyEnum(connection['node']['format']),
+                  type: connection['node']['type'] == 'ANIME'
                       ? Explorable.anime
                       : Explorable.manga,
                 ),
               ]));
 
-    _characters.update((c) => c!.append(
-          connections,
-          data['characterMedia']['pageInfo']['hasNextPage'],
-        ));
+    _characters.append(
+      connections,
+      data['characterMedia']['pageInfo']['hasNextPage'],
+    );
   }
 
   void _initRoles(Map<String, dynamic> data, bool clear) {
-    if (clear) _roles().clear();
+    if (clear) _roles.clear();
 
     final connections = <ConnectionModel>[];
     for (final connection in data['staffMedia']['edges'])
       connections.add(ConnectionModel(
         id: connection['node']['id'],
         title: connection['node']['title']['userPreferred'],
-        imageUrl: connection['node']['coverImage']['large'],
-        browsable: connection['node']['type'] == 'ANIME'
+        imageUrl: connection['node']['coverImage']['extraLarge'],
+        type: connection['node']['type'] == 'ANIME'
             ? Explorable.anime
             : Explorable.manga,
-        text2: Convert.clarifyEnum(connection['staffRole']),
+        subtitle: Convert.clarifyEnum(connection['staffRole']),
       ));
 
-    _roles.update((r) => r!.append(
-          connections,
-          data['staffMedia']['pageInfo']['hasNextPage'],
-        ));
+    _roles.append(
+      connections,
+      data['staffMedia']['pageInfo']['hasNextPage'],
+    );
   }
 
   @override
   void onInit() {
     super.onInit();
-    fetch();
+    if (_model == null) _fetch();
   }
 }

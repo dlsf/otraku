@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:otraku/utils/config.dart';
-import 'package:otraku/enums/explorable.dart';
-import 'package:otraku/enums/themes.dart';
+import 'package:otraku/constants/consts.dart';
+import 'package:otraku/constants/explorable.dart';
 import 'package:otraku/models/explorable_model.dart';
 import 'package:otraku/widgets/explore_indexer.dart';
 import 'package:otraku/widgets/fade_image.dart';
 import 'package:otraku/widgets/layouts/sliver_grid_delegates.dart';
-import 'package:otraku/widgets/navigation/nav_bar.dart';
+import 'package:otraku/widgets/layouts/nav_layout.dart';
 
 class ReviewGrid extends StatelessWidget {
   final List<ExplorableModel> data;
@@ -16,13 +15,15 @@ class ReviewGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sidePadding = MediaQuery.of(context).size.width > 620
-        ? (MediaQuery.of(context).size.width - 600) / 2.0
-        : 10.0;
+    final sidePadding = 10.0 +
+        (MediaQuery.of(context).size.width > Consts.OVERLAY_WIDE
+            ? (MediaQuery.of(context).size.width - Consts.OVERLAY_WIDE) / 2
+            : 0.0);
+
     final padding = EdgeInsets.only(
       left: sidePadding,
       right: sidePadding,
-      bottom: scrollCtrl == null ? 0 : NavBar.offset(context),
+      bottom: scrollCtrl == null ? 0 : NavLayout.offset(context),
       top: 15,
     );
 
@@ -35,7 +36,7 @@ class ReviewGrid extends StatelessWidget {
       return GridView.builder(
         padding: padding,
         controller: scrollCtrl,
-        physics: Config.PHYSICS,
+        physics: Consts.PHYSICS,
         itemCount: data.length,
         gridDelegate: gridDelegate,
         itemBuilder: (_, i) => _Tile(data[i]),
@@ -63,11 +64,11 @@ class _Tile extends StatelessWidget {
     return ExploreIndexer(
       id: model.id,
       imageUrl: model.imageUrl,
-      browsable: Explorable.review,
+      explorable: Explorable.review,
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).primaryColor,
-          borderRadius: Config.BORDER_RADIUS,
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: Consts.BORDER_RAD_MIN,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -76,17 +77,17 @@ class _Tile extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.vertical(top: Config.RADIUS),
+                  borderRadius: BorderRadius.vertical(top: Consts.RADIUS_MIN),
                   child: Hero(
                     tag: model.id,
-                    child: FadeImage(model.imageUrl),
+                    child: FadeImage(model.imageUrl!),
                   ),
                 ),
               ),
             Expanded(
               flex: 3,
               child: Padding(
-                padding: Config.PADDING,
+                padding: Consts.PADDING,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -96,7 +97,7 @@ class _Tile extends StatelessWidget {
                         alignment: Alignment.bottomLeft,
                         child: Text(
                           model.text1,
-                          style: Theme.of(context).textTheme.headline5,
+                          style: Theme.of(context).textTheme.headline2,
                           overflow: TextOverflow.fade,
                         ),
                       ),
@@ -122,7 +123,7 @@ class _Tile extends StatelessWidget {
                               children: [
                                 Icon(
                                   Icons.thumbs_up_down_outlined,
-                                  size: Style.ICON_SMALL,
+                                  size: Consts.ICON_SMALL,
                                 ),
                                 const SizedBox(height: 5),
                                 Text(

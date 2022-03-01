@@ -1,6 +1,6 @@
-import 'package:get/get.dart';
-import 'package:otraku/enums/explorable.dart';
-import 'package:otraku/models/entry_model.dart';
+import 'package:otraku/constants/explorable.dart';
+import 'package:otraku/models/edit_model.dart';
+import 'package:otraku/models/media_stats_model.dart';
 import 'package:otraku/utils/convert.dart';
 import 'package:otraku/models/media_info_model.dart';
 import 'package:otraku/models/related_media_model.dart';
@@ -10,21 +10,23 @@ import 'package:otraku/models/page_model.dart';
 
 class MediaModel {
   final MediaInfoModel info;
-  late EntryModel entry;
+  late EditModel entry;
+  final MediaStatsModel stats;
   final List<RelatedMediaModel> otherMedia;
-  final _characters = PageModel<ConnectionModel>().obs;
-  final _staff = PageModel<ConnectionModel>().obs;
-  final _reviews = PageModel<RelatedReviewModel>().obs;
+  final _characters = PageModel<ConnectionModel>();
+  final _staff = PageModel<ConnectionModel>();
+  final _reviews = PageModel<RelatedReviewModel>();
 
-  PageModel<ConnectionModel> get characters => _characters();
-  PageModel<ConnectionModel> get staff => _staff();
-  PageModel<RelatedReviewModel> get reviews => _reviews();
+  PageModel<ConnectionModel> get characters => _characters;
+  PageModel<ConnectionModel> get staff => _staff;
+  PageModel<RelatedReviewModel> get reviews => _reviews;
 
-  MediaModel._(
-    this.info,
-    this.entry,
-    this.otherMedia,
-  );
+  MediaModel._({
+    required this.info,
+    required this.entry,
+    required this.stats,
+    required this.otherMedia,
+  });
 
   factory MediaModel(final Map<String, dynamic> map) {
     final other = <RelatedMediaModel>[];
@@ -32,9 +34,10 @@ class MediaModel {
       other.add(RelatedMediaModel(relation));
 
     return MediaModel._(
-      MediaInfoModel(map),
-      EntryModel(map),
-      other,
+      info: MediaInfoModel(map),
+      entry: EditModel(map),
+      stats: MediaStatsModel(map),
+      otherMedia: other,
     )..addReviews(map);
   }
 
@@ -52,26 +55,24 @@ class MediaModel {
 
         voiceActors.add(ConnectionModel(
           id: va['id'],
-          title: va['name']['full'],
+          title: va['name']['userPreferred'],
           imageUrl: va['image']['large'],
-          browsable: Explorable.staff,
-          text2: language,
+          type: Explorable.staff,
+          subtitle: language,
         ));
       }
 
       items.add(ConnectionModel(
         id: connection['node']['id'],
-        title: connection['node']['name']['full'],
-        text2: Convert.clarifyEnum(connection['role']),
+        title: connection['node']['name']['userPreferred'],
         imageUrl: connection['node']['image']['large'],
-        others: voiceActors,
-        browsable: Explorable.character,
+        subtitle: Convert.clarifyEnum(connection['role']),
+        type: Explorable.character,
+        other: voiceActors,
       ));
     }
 
-    _characters.update(
-      (c) => c!.append(items, map['characters']['pageInfo']['hasNextPage']),
-    );
+    _characters.append(items, map['characters']['pageInfo']['hasNextPage']);
   }
 
   void addStaff(final Map<String, dynamic> map) {
@@ -79,15 +80,13 @@ class MediaModel {
     for (final connection in map['staff']['edges'])
       items.add(ConnectionModel(
         id: connection['node']['id'],
-        title: connection['node']['name']['full'],
-        text2: connection['role'],
+        title: connection['node']['name']['userPreferred'],
+        subtitle: connection['role'],
         imageUrl: connection['node']['image']['large'],
-        browsable: Explorable.staff,
+        type: Explorable.staff,
       ));
 
-    _staff.update(
-      (s) => s!.append(items, map['staff']['pageInfo']['hasNextPage']),
-    );
+    _staff.append(items, map['staff']['pageInfo']['hasNextPage']);
   }
 
   void addReviews(final Map<String, dynamic> map) {
@@ -97,8 +96,6 @@ class MediaModel {
         items.add(RelatedReviewModel(r));
       } catch (_) {}
 
-    _reviews.update(
-      (r) => r!.append(items, map['reviews']['pageInfo']['hasNextPage']),
-    );
+    _reviews.append(items, map['reviews']['pageInfo']['hasNextPage']);
   }
 }

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:otraku/controllers/home_controller.dart';
 import 'package:otraku/utils/client.dart';
-import 'package:otraku/utils/config.dart';
-import 'package:otraku/widgets/navigation/nav_bar.dart';
-import 'package:otraku/widgets/overlays/dialogs.dart';
+import 'package:otraku/constants/consts.dart';
+import 'package:otraku/widgets/layouts/nav_layout.dart';
 import 'package:otraku/widgets/overlays/toast.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -13,12 +14,13 @@ class SettingsAboutView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      physics: Config.PHYSICS,
-      padding: Config.PADDING,
+      controller: Get.find<HomeController>().scrollCtrl,
+      physics: Consts.PHYSICS,
+      padding: Consts.PADDING,
       children: [
         Center(
           child: ClipRRect(
-            borderRadius: Config.BORDER_RADIUS,
+            borderRadius: Consts.BORDER_RAD_MIN,
             child: Image.asset(
               'assets/icons/about_icon.png',
               fit: BoxFit.contain,
@@ -30,9 +32,9 @@ class SettingsAboutView extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
           child: Text(
-            'Otraku - v. 1.1.1',
+            'Otraku - v. 1.1.7+1',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headline5,
+            style: Theme.of(context).textTheme.headline2,
           ),
         ),
         Text(
@@ -63,6 +65,40 @@ class SettingsAboutView extends StatelessWidget {
           child: SizedBox(
             width: 200,
             child: ElevatedButton.icon(
+              icon: const Icon(Ionicons.logo_github),
+              label: Text('Source Code'),
+              onPressed: () {
+                try {
+                  launch('https://github.com/lotusgate/otraku');
+                } catch (err) {
+                  Toast.show(context, 'Couldn\'t open link: $err');
+                }
+              },
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: 200,
+            child: ElevatedButton.icon(
+              icon: const Icon(Ionicons.cash_outline),
+              label: Text('Donate'),
+              onPressed: () {
+                try {
+                  launch('https://ko-fi.com/lotusgate');
+                } catch (err) {
+                  Toast.show(context, 'Couldn\'t open link: $err');
+                }
+              },
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: 200,
+            child: ElevatedButton.icon(
               icon: const Icon(Ionicons.finger_print),
               label: Text('Privacy Policy'),
               onPressed: () {
@@ -81,25 +117,17 @@ class SettingsAboutView extends StatelessWidget {
             width: 200,
             child: ElevatedButton.icon(
               icon: const Icon(Ionicons.log_out_outline),
-              label: Text('Log Out'),
+              label: Text('Accounts'),
               style: ButtonStyle(
                 backgroundColor: MaterialStateProperty.all(
-                  Theme.of(context).errorColor,
+                  Theme.of(context).colorScheme.error,
                 ),
               ),
-              onPressed: () => showPopUp(
-                context,
-                ConfirmationDialog(
-                  title: 'Log out? (Don\'t do it)',
-                  mainAction: 'Yes',
-                  secondaryAction: 'No',
-                  onConfirm: Client.logOut,
-                ),
-              ),
+              onPressed: Client.logOut,
             ),
           ),
         ),
-        SizedBox(height: NavBar.offset(context)),
+        SizedBox(height: NavLayout.offset(context)),
       ],
     );
   }

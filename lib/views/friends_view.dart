@@ -2,50 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 import 'package:otraku/controllers/friends_controller.dart';
-import 'package:otraku/utils/config.dart';
 import 'package:otraku/widgets/layouts/tile_grid.dart';
 import 'package:otraku/widgets/loaders.dart/loader.dart';
+import 'package:otraku/widgets/layouts/nav_layout.dart';
 import 'package:otraku/widgets/navigation/app_bars.dart';
-import 'package:otraku/widgets/navigation/nav_bar.dart';
 
 class FriendsView extends StatelessWidget {
+  FriendsView(this.id, this.onFollowing);
+
   final int id;
-  FriendsView(this.id);
+  final bool onFollowing;
 
   @override
-  Widget build(BuildContext context) => GetBuilder<FriendsController>(
-        tag: id.toString(),
-        builder: (friends) => Scaffold(
-          extendBody: true,
-          appBar: ShadowAppBar(
-            title: friends.onFollowing ? 'Following' : 'Followers',
-          ),
-          bottomNavigationBar: NavBar(
-            options: {
-              'Following': Ionicons.people_circle,
-              'Followers': Ionicons.person_circle,
-            },
-            onChanged: (page) => friends.onFollowing = page == 0 ? true : false,
-            initial: friends.onFollowing ? 0 : 1,
-          ),
-          body: AnimatedSwitcher(
-            duration: Config.TAB_SWITCH_DURATION,
-            child: Center(
-              key: friends.key,
-              child: friends.users.isNotEmpty
-                  ? TileGrid(
-                      models: friends.users,
-                      scrollCtrl: friends.scrollCtrl,
-                      full: false,
-                    )
-                  : friends.hasNextPage
-                      ? const Center(child: Loader())
-                      : Text(
-                          'No Users',
-                          style: Theme.of(context).textTheme.subtitle2,
-                        ),
-            ),
-          ),
+  Widget build(BuildContext context) {
+    final keyFollowing = UniqueKey();
+    final keyFollowers = UniqueKey();
+
+    return GetBuilder<FriendsController>(
+      init: FriendsController(id, onFollowing),
+      tag: id.toString(),
+      builder: (ctrl) => NavLayout(
+        index: ctrl.onFollowing ? 0 : 1,
+        onChanged: (page) => ctrl.onFollowing = page == 0 ? true : false,
+        onSame: (_) => ctrl.scrollUpTo(0),
+        appBar: ShadowAppBar(
+          title: ctrl.onFollowing ? 'Following' : 'Followers',
         ),
-      );
+        items: const {
+          'Following': Ionicons.people_circle,
+          'Followers': Ionicons.person_circle,
+        },
+        child: ctrl.users.isNotEmpty
+            ? TileGrid(
+                models: ctrl.users,
+                scrollCtrl: ctrl.scrollCtrl,
+                full: false,
+                key: ctrl.onFollowing ? keyFollowing : keyFollowers,
+              )
+            : Center(
+                child: ctrl.hasNextPage
+                    ? const Loader()
+                    : Text(
+                        'No Users',
+                        style: Theme.of(context).textTheme.subtitle2,
+                      ),
+              ),
+      ),
+    );
+  }
 }

@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:otraku/utils/config.dart';
+import 'package:otraku/constants/consts.dart';
 
 class BubbleTabs<T> extends StatefulWidget {
-  final List<String> options;
-  final List<T> values;
-  final T initial;
-  final Function(T) onNewValue;
-  final Function(T) onSameValue;
+  final Map<String, T> items;
+  final T Function() current;
+  final void Function(T) onChanged;
+  final void Function() onSame;
 
-  const BubbleTabs({
-    required this.options,
-    required this.values,
-    required this.initial,
-    required this.onNewValue,
-    required this.onSameValue,
+  BubbleTabs({
+    required this.items,
+    required this.current,
+    required this.onChanged,
+    required this.onSame,
   });
 
   @override
@@ -21,54 +19,60 @@ class BubbleTabs<T> extends StatefulWidget {
 }
 
 class _BubbleTabsState<T> extends State<BubbleTabs<T>> {
-  int? _index;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        height: 30,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (int i = 0; i < widget.options.length; i++) ...[
-              GestureDetector(
-                onTap: () {
-                  if (_index != i) {
-                    setState(() => _index = i);
-                    widget.onNewValue(widget.values[i]);
-                  } else
-                    widget.onSameValue(widget.values[i]);
-                },
-                child: AnimatedContainer(
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  duration: const Duration(milliseconds: 300),
-                  decoration: BoxDecoration(
-                    color: _index != i
-                        ? Colors.transparent
-                        : Theme.of(context).accentColor,
-                    borderRadius: Config.BORDER_RADIUS,
-                  ),
-                  child: Text(
-                    widget.options[i],
-                    style: _index != i
-                        ? Theme.of(context).textTheme.headline5
-                        : Theme.of(context)
-                            .textTheme
-                            .headline5!
-                            .copyWith(color: Theme.of(context).backgroundColor),
-                  ),
-                ),
-              ),
-            ]
-          ],
-        ),
-      );
+  late T _val;
 
   @override
   void initState() {
     super.initState();
-    _index = widget.values.indexOf(widget.initial);
-    if (_index == -1) _index = 0;
+    _val = widget.current();
+  }
+
+  @override
+  void didUpdateWidget(covariant BubbleTabs<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _val = widget.current();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final values = widget.items.values;
+
+    return Container(
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < widget.items.length; i++)
+            GestureDetector(
+              onTap: () {
+                if (_val != values.elementAt(i)) {
+                  widget.onChanged(values.elementAt(i));
+                  setState(() => _val = values.elementAt(i));
+                } else
+                  widget.onSame();
+              },
+              child: AnimatedContainer(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                duration: const Duration(milliseconds: 300),
+                decoration: BoxDecoration(
+                  color: _val != values.elementAt(i)
+                      ? null
+                      : Theme.of(context).colorScheme.secondary,
+                  borderRadius: Consts.BORDER_RAD_MIN,
+                ),
+                child: Text(
+                  widget.items.keys.elementAt(i),
+                  style: _val != values.elementAt(i)
+                      ? Theme.of(context).textTheme.headline2
+                      : Theme.of(context).textTheme.headline2!.copyWith(
+                          color: Theme.of(context).colorScheme.background),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

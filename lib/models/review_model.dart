@@ -1,4 +1,4 @@
-import 'package:otraku/enums/explorable.dart';
+import 'package:otraku/constants/explorable.dart';
 import 'package:otraku/utils/convert.dart';
 
 class ReviewModel {
@@ -14,7 +14,7 @@ class ReviewModel {
   final String text;
   final String createdAt;
   final int score;
-  final Explorable browsable;
+  final Explorable explorable;
   int rating;
   int totalRating;
   bool? viewerRating;
@@ -35,7 +35,7 @@ class ReviewModel {
     required this.rating,
     required this.totalRating,
     required this.viewerRating,
-    required this.browsable,
+    required this.explorable,
   });
 
   factory ReviewModel(Map<String, dynamic> map) => ReviewModel._(
@@ -45,7 +45,7 @@ class ReviewModel {
         userName: map['user']['name'] ?? '',
         userAvatar: map['user']['avatar']['large'],
         mediaTitle: map['media']['title']['userPreferred'] ?? '',
-        mediaCover: map['media']['coverImage']['large'],
+        mediaCover: map['media']['coverImage']['extraLarge'],
         banner: map['media']['bannerImage'],
         summary: map['summary'] ?? '',
         text: map['body'] ?? '',
@@ -58,7 +58,7 @@ class ReviewModel {
             : map['userRating'] == 'DOWN_VOTE'
                 ? false
                 : null,
-        browsable: map['media']['type'] == 'ANIME'
+        explorable: map['media']['type'] == 'ANIME'
             ? Explorable.anime
             : Explorable.manga,
       );

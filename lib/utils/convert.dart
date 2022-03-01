@@ -1,11 +1,9 @@
-import 'package:collection/collection.dart' show IterableExtension;
-import 'package:flutter/foundation.dart';
-import 'package:otraku/utils/config.dart';
+import 'package:otraku/constants/list_status.dart';
+import 'package:otraku/utils/settings.dart';
 
 abstract class Convert {
-  // Replaces _ with [blank_space] and makes each word
-  // start with an upper case letter and continue with
-  // lower case ones.
+  // Replaces _ with intervals and makes each word start with
+  // an upper case letter and continue with lower case ones.
   static String? clarifyEnum(String? str) {
     if (str == null) return null;
     return str.splitMapJoin(
@@ -15,11 +13,16 @@ abstract class Convert {
     );
   }
 
-  // Transforms a string into enum. The string must be
-  // as if it was acquired through "describeEnum()"
-  // and the values must be the enum values.
-  static T? strToEnum<T>(String? str, List<T> values) =>
-      values.firstWhereOrNull((v) => describeEnum(v!) == str);
+  /// Converts a [ListStatus] to [String], taking into account the media type.
+  static String adaptListStatus(ListStatus status, bool isAnime) {
+    if (status == ListStatus.CURRENT) return isAnime ? 'Watching' : 'Reading';
+
+    if (status == ListStatus.REPEATING)
+      return isAnime ? 'Rewatching' : 'Rereading';
+
+    final str = status.name;
+    return str[0] + str.substring(1).toLowerCase();
+  }
 
   // Removes all html tags.
   static String clearHtml(String? str) {
@@ -31,12 +34,22 @@ abstract class Convert {
   static String? mapToDateStr(Map<String, dynamic>? map) {
     if (map?['year'] == null) return null;
 
-    final String? month = _MONTHS[map!['month']];
+    final month = _MONTHS[map!['month']] ?? '';
+
+    if (month == '') return '${map['year']}';
+
     final day = map['day'] ?? '';
 
-    if (month == '' && day == '') return '${map['year']}';
+    if (day == '') return '$month, ${map['year']}';
 
     return '$month $day, ${map['year']}';
+  }
+
+  // Converts a map (representing a date) to milliseconds count.
+  static int? mapToMillis(Map<String, dynamic> map) {
+    if (map['year'] == null) return null;
+    return DateTime(map['year'], map['month'] ?? 0, map['day'] ?? 0)
+        .millisecondsSinceEpoch;
   }
 
   // Converts a map (representing a date) to DateTime.
@@ -57,7 +70,7 @@ abstract class Convert {
     if (seconds == null) return '';
     final date = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
 
-    if (Config.storage.read(Config.CLOCK_TYPE) ?? false) {
+    if (Settings().analogueClock) {
       final overflows = date.hour > 12;
       return '${_WEEK_DAYS[date.weekday - 1]}, ${date.day} '
           '${_MONTHS[date.month]} ${date.year}, '
