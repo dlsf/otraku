@@ -1,3 +1,4 @@
+// import 'package:flutter/foundation.dart';
 import 'package:markdown/markdown.dart';
 
 class Markdown {
@@ -10,137 +11,179 @@ class Markdown {
 
   void parse() {
     if (_parsed) return;
+    final stopwatch = Stopwatch();
+    stopwatch.start();
     text = markdownToHtml(
       text,
       extensionSet: ExtensionSet.none,
       blockSyntaxes: _blockSyntaxes,
       inlineSyntaxes: _inlineSyntaxes,
     );
+    stopwatch.stop();
+    print('elapsed time: ${stopwatch.elapsedMilliseconds}');
     _parsed = true;
   }
 
+  // Future<void> parse() async {
+  //   if (_parsed) return;
+  //   text = await compute(_parse, text);
+  //   _parsed = true;
+  // }
+
+  // String _parse(String data) => markdownToHtml(
+  //       data,
+  //       extensionSet: ExtensionSet.none,
+  //       blockSyntaxes: _blockSyntaxes,
+  //       inlineSyntaxes: _inlineSyntaxes,
+  //     );
+
   static const _blockSyntaxes = [
-    // _CenterSyntax(),
-    // _SpoilerSyntax(),
-    FencedCodeBlockSyntax(),
+    BlockquoteSyntax(),
+    UnorderedListSyntax(),
+    HorizontalRuleSyntax(),
+    _CenterSyntax(),
+    _FencedCodeBlockLimitedSyntax(),
   ];
 
   static final _inlineSyntaxes = [
+    LinkSyntax(),
+    CodeSyntax(),
+    EscapeSyntax(),
     StrikethroughSyntax(),
-    AutolinkExtensionSyntax(),
-    InlineHtmlSyntax(),
+    _BoldSyntax(),
+    _ItalicSyntax(),
   ];
 }
 
-// // TODO doesn't load bio on taluun
+// TODO not matching?
+class _BoldSyntax extends TagSyntax {
+  _BoldSyntax() : super(r'\*\*', requiresDelimiterRun: true);
 
-// class _CenterSyntax extends BlockSyntax {
-//   const _CenterSyntax();
+  @override
+  bool tryMatch(InlineParser parser, [int? startMatchPos]) {
+    print('try');
+    final a = super.tryMatch(parser, startMatchPos);
+    print('with $a');
+    return a;
+  }
 
-//   @override
-//   RegExp get pattern => RegExp(r'~~~');
+  @override
+  Node close(
+    InlineParser parser,
+    Delimiter opener,
+    Delimiter closer, {
+    required List<Node> Function() getChildren,
+  }) {
+    print('was here');
+    return Element('b', getChildren());
+  }
+}
 
-//   @override
-//   bool canParse(BlockParser parser) => parser.current.contains('~~~');
+class _ItalicSyntax extends TagSyntax {
+  _ItalicSyntax() : super(r'\*', requiresDelimiterRun: true);
 
-//   // The text before the opening '~~~' is the first element (prefix)
-//   // The text after  the closing '~~~' is the last  element (postfix)
-//   @override
-//   List<String> parseChildLines(BlockParser parser) {
-//     final childLines = <String>[];
-//     const patt = '~~~';
+  @override
+  Node close(
+    InlineParser parser,
+    Delimiter opener,
+    Delimiter closer, {
+    required List<Node> Function() getChildren,
+  }) =>
+      Element('i', getChildren());
+}
 
-//     int startIndex = parser.current.indexOf(patt);
-//     childLines.add(parser.current.substring(0, startIndex));
+// AL markdown treats content surrounded with ~~~ as centered,
+// instead of code, so it should be excluded from this pattern.
+class _FencedCodeBlockLimitedSyntax extends FencedCodeBlockSyntax {
+  const _FencedCodeBlockLimitedSyntax();
 
-//     startIndex += 3;
-//     if (startIndex < parser.current.length) {
-//       final lineEnd = parser.current.substring(startIndex);
-//       int endIndex = lineEnd.indexOf(patt);
+  @override
+  RegExp get pattern => _codeFencePattern;
 
-//       if (endIndex >= 0) {
-//         childLines.add(lineEnd.substring(0, endIndex));
+  static final _codeFencePattern = RegExp(r'^[ ]{0,3}(`{3,})(.*)$');
+}
 
-//         endIndex += 3;
-//         if (endIndex < lineEnd.length)
-//           childLines.add(lineEnd.substring(endIndex));
-//         else
-//           childLines.add('');
+// Centering with a pair of ~~~
+class _CenterSyntax extends BlockSyntax {
+  const _CenterSyntax();
 
-//         return childLines;
-//       }
+  @override
+  RegExp get pattern => RegExp('~~~');
 
-//       childLines.add(lineEnd);
-//     }
+  @override
+  bool canParse(BlockParser parser) => parser.current.contains('~~~');
 
-//     parser.advance();
+  // The text before the opening ~~~ is the first element (prefix)
+  // The text after  the closing ~~~ is the last  element (postfix)
+  @override
+  List<String> parseChildLines(BlockParser parser) {
+    final childLines = <String>[];
 
-//     while (!parser.isDone) {
-//       int endIndex = parser.current.indexOf(patt);
+    int startIndex = parser.current.indexOf('~~~');
+    childLines.add(parser.current.substring(0, startIndex));
 
-//       if (endIndex < 0) {
-//         childLines.add(parser.current);
-//         parser.advance();
-//         continue;
-//       }
+    startIndex += 3;
+    if (startIndex < parser.current.length) {
+      final lineEnd = parser.current.substring(startIndex);
+      int endIndex = lineEnd.indexOf('~~~');
 
-//       childLines.add(parser.current.substring(0, endIndex));
+      if (endIndex >= 0) {
+        childLines.add(lineEnd.substring(0, endIndex));
 
-//       endIndex += 3;
-//       if (endIndex < parser.current.length)
-//         childLines.add(parser.current.substring(endIndex));
-//       else if (childLines.last != '') childLines.add('');
+        endIndex += 3;
+        if (endIndex < lineEnd.length)
+          childLines.add(lineEnd.substring(endIndex));
+        else
+          childLines.add('');
 
-//       parser.advance();
-//       return childLines;
-//     }
+        parser.advance();
+        return childLines;
+      }
 
-//     return [];
+      childLines.add(lineEnd);
+    }
 
-//     // final firstMatch = pattern.firstMatch(parser.current)!;
-//     // childLines.add(firstMatch.group(1) ?? '');
+    parser.advance();
 
-//     // final lineEnd = firstMatch.group(2) ?? '';
-//     // final earlyMatch = pattern.firstMatch(lineEnd);
+    while (!parser.isDone) {
+      int endIndex = parser.current.indexOf('~~~');
 
-//     // if (earlyMatch != null)
-//     //   return childLines
-//     //     ..add(earlyMatch.group(1) ?? '')
-//     //     ..add(earlyMatch.group(2) ?? '');
+      if (endIndex < 0) {
+        childLines.add(parser.current);
+        parser.advance();
+        continue;
+      }
 
-//     // childLines.add(lineEnd);
-//     // parser.advance();
+      childLines.add(parser.current.substring(0, endIndex));
 
-//     // while (!parser.isDone) {
-//     //   final match = pattern.firstMatch(parser.current);
-//     //   if (match == null) {
-//     //     childLines.add(parser.current);
-//     //     parser.advance();
-//     //   } else {
-//     //     childLines..add(match.group(1) ?? '')..add(match.group(2) ?? '');
-//     //     parser.advance();
-//     //     break;
-//     //   }
-//     // }
+      endIndex += 3;
+      if (endIndex < parser.current.length)
+        childLines.add(parser.current.substring(endIndex));
+      else
+        childLines.add('');
 
-//     // return childLines;
-//   }
+      parser.advance();
+      return childLines;
+    }
 
-//   @override
-//   Node? parse(BlockParser parser) {
-//     final lines = parseChildLines(parser);
-//     if (lines.length < 3) return null;
+    return [];
+  }
 
-//     final prefix = BlockParser([lines.first], parser.document).parseLines();
-//     final postfix = BlockParser([lines.last], parser.document).parseLines();
-//     final children = BlockParser(
-//       lines.sublist(1, lines.length - 1),
-//       parser.document,
-//     ).parseLines();
+  @override
+  Node? parse(BlockParser parser) {
+    final lines = parseChildLines(parser);
+    if (lines.length < 3) return null;
 
-//     return Element('p', [...prefix, Element('center', children), ...postfix]);
-//   }
-// }
+    final prefix = BlockParser([lines.first], parser.document).parseLines();
+    final postfix = BlockParser([lines.last], parser.document).parseLines();
+    final children = BlockParser(
+      lines.sublist(1, lines.length - 1),
+      parser.document,
+    ).parseLines();
+
+    return Element('p', [...prefix, Element('center', children), ...postfix]);
+  }
+}
 
 // class _SpoilerSyntax extends BlockSyntax {
 //   const _SpoilerSyntax();

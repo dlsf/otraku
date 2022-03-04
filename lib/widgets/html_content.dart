@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:ionicons/ionicons.dart';
@@ -16,15 +17,16 @@ class MarkdownContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     markdown.parse();
-
     return HtmlContent(markdown.text);
-    // FutureBuilder<Widget>(
+    // return FutureBuilder<Widget>(
     //   future: _future(),
     //   builder: (_, snapshot) => snapshot.data ?? const Center(child: Loader()),
     // );
   }
 
   // Future<Widget> _future() async {
+  //   if (markdown.parsed) return SynchronousFuture(HtmlContent(markdown.text));
+
   //   await markdown.parse();
   //   return HtmlContent(markdown.text);
   // }
