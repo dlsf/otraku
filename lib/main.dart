@@ -43,7 +43,7 @@ class AppState extends ConsumerState<App> {
     );
 
     if (Options().lastVersionCode != versionCode) {
-      Options().updateVersionCode();
+      Options().updateVersionCodeToLatestVersion();
       BackgroundHandler.requestPermissionForNotifications();
     }
 
